@@ -25,7 +25,7 @@ import type {
 function buildInitialState(routeVariant: RouteVariantId = "bohinj"): TripStateData {
   return {
     routeVariant,
-    activeView: "overview",
+    activeView: "today",
     selectedDayId: TRIP_SEED.defaultSelectedDayId,
     executionDayId: TRIP_SEED.defaultExecutionDayId,
     expandedDayIds: [...TRIP_SEED.defaultExpandedDayIds],
@@ -82,6 +82,32 @@ function mergeEditableFields(sourceDay: TripDay, existingDay?: TripDay): TripDay
 function normalizeRouteVariant(value: unknown): RouteVariantId {
   if (value === "bled") return "bled";
   return "bohinj";
+}
+
+function normalizeActiveView(value: unknown): AppView {
+  switch (value) {
+    case "today":
+    case "journey":
+    case "route":
+    case "stays":
+    case "prep":
+    case "notes":
+      return value;
+    case "overview":
+      return "today";
+    case "itinerary":
+      return "journey";
+    case "map":
+      return "route";
+    case "bookings":
+    case "budget":
+      return "stays";
+    case "compliance":
+    case "readiness":
+      return "prep";
+    default:
+      return "today";
+  }
 }
 
 export const useTripStore = create<TripStore>()(
@@ -191,7 +217,7 @@ export const useTripStore = create<TripStore>()(
         const expandedDayIds = (persistedState as Partial<TripStore>).expandedDayIds;
         return {
           ...baseState,
-          activeView: (persistedState as Partial<TripStore>).activeView ?? baseState.activeView,
+          activeView: normalizeActiveView((persistedState as Partial<TripStore>).activeView),
           selectedDayId: typeof selectedDayId === "string" ? selectedDayId : baseState.selectedDayId,
           executionDayId: typeof executionDayId === "string" ? executionDayId : baseState.executionDayId,
           expandedDayIds: Array.isArray(expandedDayIds) ? expandedDayIds.filter((value): value is string => typeof value === "string") : baseState.expandedDayIds,

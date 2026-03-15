@@ -1,11 +1,9 @@
 ﻿export type AppView =
-  | "overview"
-  | "itinerary"
-  | "map"
-  | "compliance"
-  | "bookings"
-  | "budget"
-  | "readiness"
+  | "today"
+  | "journey"
+  | "route"
+  | "stays"
+  | "prep"
   | "notes";
 
 export type RouteVariantId = "bohinj" | "bled";

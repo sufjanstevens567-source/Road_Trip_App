@@ -17,34 +17,36 @@ interface RouteMapProps {
 function markerColor(kind: RouteStop["kind"]) {
   switch (kind) {
     case "city":
-      return "oklch(0.46 0.12 230)";
+      return "oklch(0.42 0.08 232)";
     case "scenic":
-      return "oklch(0.68 0.14 145)";
+      return "oklch(0.62 0.09 150)";
     case "practical":
-      return "oklch(0.63 0.11 75)";
+      return "oklch(0.72 0.07 74)";
     case "finish":
-      return "oklch(0.52 0.17 30)";
+      return "oklch(0.58 0.15 38)";
     default:
-      return "oklch(0.38 0.02 260)";
+      return "oklch(0.33 0.03 246)";
   }
 }
 
 function buildIcon(stop: RouteStop): DivIcon {
   return divIcon({
     className: "bg-transparent border-0",
-    html: `<div style="display:flex;height:40px;width:40px;align-items:center;justify-content:center;border-radius:999px;border:1px solid rgba(255,255,255,.8);box-shadow:0 10px 24px rgba(15,23,42,.16);background:${markerColor(stop.kind)};color:white;font-size:10px;font-weight:600;">${stop.markerLabel}</div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    html: `<div style="display:flex;height:44px;width:44px;align-items:center;justify-content:center;border-radius:999px;border:1px solid rgba(255,255,255,.92);box-shadow:0 18px 42px rgba(31,38,67,.22);background:${markerColor(stop.kind)};color:rgba(255,250,242,.98);font-size:11px;font-weight:700;letter-spacing:.03em;">${stop.markerLabel}</div>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
   });
 }
 
 function FitBounds({ stops }: { stops: RouteStop[] }) {
   const map = useMap();
+
   useEffect(() => {
     if (stops.length === 0) return;
     const bounds = latLngBounds(stops.map((stop) => stop.coordinates));
-    map.fitBounds(bounds.pad(0.28));
+    map.fitBounds(bounds.pad(0.2));
   }, [map, stops]);
+
   return null;
 }
 
@@ -55,9 +57,12 @@ export function RouteMap({ stops, days, selectedDayId, onSelectDay }: RouteMapPr
   }));
 
   return (
-    <MapContainer className="h-[420px] w-full rounded-[1.75rem]" center={[47.5, 17.5]} zoom={6} scrollWheelZoom={false}>
+    <MapContainer className="h-[560px] w-full rounded-[2rem]" center={[47.5, 17.5]} zoom={6} scrollWheelZoom={false}>
       <FitBounds stops={stops} />
-      <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <TileLayer
+        attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+      />
       {polylines.map((polyline) => {
         const active = polyline.id === selectedDayId;
         return (
@@ -65,12 +70,12 @@ export function RouteMap({ stops, days, selectedDayId, onSelectDay }: RouteMapPr
             key={polyline.id}
             positions={polyline.positions}
             pathOptions={{
-              color: active ? "#22577A" : "#7f8e95",
-              weight: active ? 6 : 4,
-              opacity: active ? 0.9 : 0.55,
+              color: active ? "#284B75" : "#938f87",
+              weight: active ? 7 : 4,
+              opacity: active ? 0.92 : 0.48,
               lineCap: "round",
               lineJoin: "round",
-              dashArray: active ? undefined : "8 10",
+              dashArray: active ? undefined : "10 14",
             }}
             eventHandlers={{ click: () => onSelectDay(polyline.id) }}
           />
