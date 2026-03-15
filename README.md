@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+﻿# Road Trip Operating System
 
-## Getting Started
+Interactive local-first planning app for a revised 9-day Luxembourg -> Sofia road trip built around the selected Munich -> Bohinj -> Ljubljana stop -> Novi Sad -> Belgrade corridor. The product is designed around daily execution first: where you sleep, how hard tomorrow is, what legal or toll prep is next, which bookings are still soft, and what could still lead to fines or parking friction.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 App Router
+- React 19 + TypeScript
+- Tailwind CSS v4
+- shadcn/ui primitives
+- Zustand with localStorage persistence
+- React Leaflet + OpenStreetMap tiles for route view
+- lucide-react icons
+
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## App structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/components/road-trip/road-trip-app.tsx`: main application shell and primary views
+- `src/components/road-trip/route-map.tsx`: interactive route map
+- `src/data/trip-seed.ts`: central trip seed data for itinerary, compliance, bookings, budget, readiness, and notes
+- `src/store/trip-store.ts`: persisted client state and update actions
+- `src/lib/trip-utils.ts`: formatting, selectors, and derived calculations
+- `src/types/trip.ts`: shared trip types
 
-## Learn More
+## How to update the trip
 
-To learn more about Next.js, take a look at the following resources:
+- Edit `src/data/trip-seed.ts` to change route stops, day plans, compliance guidance, booking seeds, budget items, readiness checks, or idea notes.
+- If you want a fresh copy of the defaults after making local edits in the UI, use the in-app `Reset trip` action.
+- Route variants live in the same seed file under `routeVariants`. The default is the Bohinj / Novi Sad corridor, and the Bled option is kept only as an archived comparison.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Notes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- All edits persist locally in the browser via localStorage.
+- The map uses OpenStreetMap tiles at runtime; the rest of the planner remains usable even if map tiles do not load.
+- The app ships with realistic seed data for the revised Luxembourg -> Sofia route described in the brief.
