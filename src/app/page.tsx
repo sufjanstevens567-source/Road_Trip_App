@@ -1,6 +1,6 @@
-﻿import { RoadTripApp } from "@/components/road-trip/road-trip-app";
+﻿import { AppShell } from "@/components/app-shell";
 
 export default function Home() {
-  return <RoadTripApp />;
+  return <AppShell />;
 }
 

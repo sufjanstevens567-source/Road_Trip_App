@@ -1,228 +1,362 @@
-﻿import { TRIP_SEED } from "@/data/trip-seed";
 import type {
-  Booking,
-  BookingStatus,
-  BudgetCategory,
-  BudgetItem,
-  ComplianceCountry,
-  ComplianceItem,
-  NoteCategory,
-  RiskItem,
-  RouteStop,
-  RouteVariantId,
-  TripDay,
-  TripStateData,
-  VehicleCheck,
-  VehicleStatus,
+  Attachment,
+  BudgetLine,
+  BudgetSummary,
+  ChecklistItem,
+  CountryRule,
+  Day,
+  DayWarning,
+  Leg,
+  Note,
+  PacingWarning,
+  ReadinessScore,
+  Stay,
+  Stop,
+  Trip,
+  TripState,
 } from "@/types/trip";
 
-export function cloneDay(day: TripDay): TripDay {
+// ─── Selectors ────────────────────────────────────────────────────────────────
+
+export function getActiveTrip(state: TripState): Trip | null {
+  return state.trips.find((t) => t.id === state.activeTripId) ?? null;
+}
+
+export function getTripStops(state: TripState, tripId: string): Stop[] {
+  return state.stops
+    .filter((s) => s.tripId === tripId)
+    .sort((a, b) => a.position - b.position);
+}
+
+export function getTripLegs(state: TripState, tripId: string): Leg[] {
+  return state.legs
+    .filter((l) => l.tripId === tripId)
+    .sort((a, b) => a.order - b.order);
+}
+
+export function getTripDays(state: TripState, tripId: string): Day[] {
+  return state.days
+    .filter((d) => d.tripId === tripId)
+    .sort((a, b) => a.dayNumber - b.dayNumber);
+}
+
+export function getTripStays(state: TripState, tripId: string): Stay[] {
+  return state.stays.filter((s) => s.tripId === tripId);
+}
+
+export function getTripChecklist(state: TripState, tripId: string): ChecklistItem[] {
+  return state.checklistItems.filter((c) => c.tripId === tripId);
+}
+
+export function getTripCountryRules(state: TripState, tripId: string): CountryRule[] {
+  return state.countryRules.filter((c) => c.tripId === tripId);
+}
+
+export function getTripBudgetLines(state: TripState, tripId: string): BudgetLine[] {
+  return state.budgetLines.filter((b) => b.tripId === tripId);
+}
+
+export function getTripNotes(state: TripState, tripId: string): Note[] {
+  return state.notes
+    .filter((n) => n.tripId === tripId)
+    .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.createdAt.localeCompare(a.createdAt));
+}
+
+export function getTripAttachments(state: TripState, tripId: string): Attachment[] {
+  return state.attachments.filter((a) => a.tripId === tripId);
+}
+
+export function getStayForStop(stays: Stay[], stopId: string): Stay | undefined {
+  return stays.find((s) => s.stopId === stopId);
+}
+
+export function getLegsForDay(legs: Leg[], day: Day): Leg[] {
+  return day.legIds
+    .map((id) => legs.find((l) => l.id === id))
+    .filter((l): l is Leg => l !== undefined);
+}
+
+export function getChecklistForDay(items: ChecklistItem[], dayId: string): ChecklistItem[] {
+  return items.filter((i) => i.scope === `day:${dayId}`);
+}
+
+export function getChecklistForStop(items: ChecklistItem[], stopId: string): ChecklistItem[] {
+  return items.filter((i) => i.scope === `stop:${stopId}`);
+}
+
+export function getTripLevelChecklist(items: ChecklistItem[]): ChecklistItem[] {
+  return items.filter((i) => i.scope === "trip");
+}
+
+export function getNotesForStop(notes: Note[], stopId: string): Note[] {
+  return notes.filter((n) => n.stopId === stopId);
+}
+
+export function getNotesForDay(notes: Note[], dayId: string): Note[] {
+  return notes.filter((n) => n.dayId === dayId);
+}
+
+export function getAttachmentsForStay(attachments: Attachment[], stayId: string): Attachment[] {
+  return attachments.filter((a) => a.stayId === stayId);
+}
+
+// ─── Drive calculations ───────────────────────────────────────────────────────
+
+export function getDayDriveStats(day: Day, legs: Leg[]): { hours: number; km: number } {
+  const dayLegs = getLegsForDay(legs, day);
   return {
-    ...day,
-    viaStopIds: day.viaStopIds ? [...day.viaStopIds] : undefined,
-    highlights: [...day.highlights],
-    tolls: [...day.tolls],
-    risks: day.risks.map((risk) => ({ ...risk })),
-    checklist: day.checklist.map((item) => ({ ...item })),
-    prepItems: [...day.prepItems],
-    activityIdeas: [...day.activityIdeas],
-    reminders: [...day.reminders],
+    hours: dayLegs.reduce((sum, l) => sum + l.driveHours, 0),
+    km: dayLegs.reduce((sum, l) => sum + l.distanceKm, 0),
   };
 }
 
-export const cloneDays = (days: TripDay[]) => days.map(cloneDay);
-export const cloneBookings = (bookings: Booking[]) => bookings.map((item) => ({ ...item }));
-export const cloneBudgetItems = (items: BudgetItem[]) => items.map((item) => ({ ...item }));
-export const cloneVehicleChecks = (items: VehicleCheck[]) => items.map((item) => ({ ...item }));
-export const cloneNotes = <T extends object>(items: T[]) => items.map((item) => ({ ...item }));
-export const cloneComplianceCountries = (countries: ComplianceCountry[]) =>
-  countries.map((country) => ({
-    ...country,
-    documents: [...country.documents],
-    commonMistakes: [...country.commonMistakes],
-    items: country.items.map((item) => ({ ...item })),
-  }));
-
-export function isVisibleForVariant(variantScope: "all" | RouteVariantId | undefined, variant: RouteVariantId) {
-  return !variantScope || variantScope === "all" || variantScope === variant;
-}
-
-export function getVisibleBookings(bookings: Booking[], variant: RouteVariantId) {
-  return bookings.filter((booking) => isVisibleForVariant(booking.variantScope, variant));
-}
-
-export function getVisibleComplianceCountries(countries: ComplianceCountry[], variant: RouteVariantId) {
-  return countries.filter((country) => isVisibleForVariant(country.variantScope, variant));
-}
-
-export function getVisibleBudgetItems(items: BudgetItem[], variant: RouteVariantId) {
-  return items.filter((item) => isVisibleForVariant(item.variantScope, variant));
-}
-
-export function getVisibleStops(variant: RouteVariantId): RouteStop[] {
-  const ids = new Set(TRIP_SEED.routeVariants[variant].stopIds);
-  return TRIP_SEED.stops.filter((stop) => ids.has(stop.id) || stop.id === "luxembourg");
-}
-
-export function getBookingCompletion(bookings: Booking[]) {
-  const score = bookings.reduce((acc, booking) => {
-    if (booking.status === "booked") return acc + 1;
-    if (booking.status === "shortlist") return acc + 0.55;
-    if (booking.status === "researching") return acc + 0.25;
-    return acc;
-  }, 0);
-  return Math.round((score / Math.max(bookings.length, 1)) * 100);
-}
-
-export function getComplianceCompletion(countries: ComplianceCountry[]) {
-  const items = countries.flatMap((country) => country.items);
-  const score = items.reduce((acc, item) => {
-    if (item.status === "ready") return acc + 1;
-    if (item.status === "watch") return acc + 0.55;
-    return acc;
-  }, 0);
-  return Math.round((score / Math.max(items.length, 1)) * 100);
-}
-
-export function getVehicleCompletion(checks: VehicleCheck[]) {
-  const score = checks.reduce((acc, item) => {
-    if (item.status === "done") return acc + 1;
-    if (item.status === "watch") return acc + 0.5;
-    return acc;
-  }, 0);
-  return Math.round((score / Math.max(checks.length, 1)) * 100);
-}
-
-export function getDayCompletion(day: TripDay) {
-  const checklistDone = day.checklist.filter((item) => item.done).length;
-  const checklistPct = day.checklist.length ? checklistDone / day.checklist.length : 1;
-  const bookingWeight = day.accommodationStatus === "booked" ? 1 : day.accommodationStatus === "shortlist" ? 0.65 : day.accommodationStatus === "researching" ? 0.35 : 0;
-  return Math.round((checklistPct * 0.65 + bookingWeight * 0.35) * 100);
-}
-
-export const getTotalDriveHours = (days: TripDay[]) => days.reduce((acc, day) => acc + day.driveHours, 0);
-export const getTotalDriveDistance = (days: TripDay[]) => days.reduce((acc, day) => acc + day.driveDistanceKm, 0);
-export const getMovingDays = (days: TripDay[]) => days.filter((day) => day.driveHours >= 1);
-
-export function formatDriveHours(hours: number) {
-  const totalMinutes = Math.round(hours * 60);
-  const hrs = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  return `${hrs}h ${mins.toString().padStart(2, "0")}m`;
-}
-
-export const formatDistance = (km: number) => `${km.toLocaleString()} km`;
-export const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
-
-export function getBudgetSummary(items: BudgetItem[]) {
-  const planned = items.reduce((acc, item) => acc + item.planned, 0);
-  const actual = items.reduce((acc, item) => acc + item.actual, 0);
-  return { planned, actual, remaining: planned - actual };
-}
-
-export function getSelectedDay(days: TripDay[], selectedDayId: string) {
-  return days.find((day) => day.id === selectedDayId) ?? days[0];
-}
-
-export function getTomorrowDay(days: TripDay[], executionDayId: string) {
-  const index = Math.max(days.findIndex((day) => day.id === executionDayId), 0);
-  return days[Math.min(index + 1, days.length - 1)];
-}
-
-export function getVariantComparison(currentVariant: RouteVariantId) {
-  const alternativeVariant = currentVariant === "bohinj" ? "bled" : "bohinj";
-  const current = TRIP_SEED.routeVariants[currentVariant];
-  const alternative = TRIP_SEED.routeVariants[alternativeVariant];
+export function getTripTotals(days: Day[], legs: Leg[]): { hours: number; km: number } {
   return {
-    alternative,
-    driveDeltaHours: Number((getTotalDriveHours(alternative.days) - getTotalDriveHours(current.days)).toFixed(1)),
-    distanceDeltaKm: getTotalDriveDistance(alternative.days) - getTotalDriveDistance(current.days),
+    hours: legs.reduce((sum, l) => sum + l.driveHours, 0),
+    km: legs.reduce((sum, l) => sum + l.distanceKm, 0),
   };
 }
 
-export function getUniqueStopCount(variant: RouteVariantId) {
-  return TRIP_SEED.routeVariants[variant].stopIds.length;
+/** Straight-line distance heuristic with road factor.
+ *  Used in wizard when no routing API is available. */
+export function estimateDriveStats(
+  from: [number, number],
+  to: [number, number]
+): { distanceKm: number; driveHours: number } {
+  const R = 6371;
+  const dLat = ((to[0] - from[0]) * Math.PI) / 180;
+  const dLon = ((to[1] - from[1]) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((from[0] * Math.PI) / 180) *
+      Math.cos((to[0] * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  const straightKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distanceKm = Math.round(straightKm * 1.35); // road factor
+  const driveHours = Math.round((distanceKm / 85) * 10) / 10; // avg 85 km/h
+  return { distanceKm, driveHours };
 }
 
-export function statusToneFromBooking(status: BookingStatus) {
-  if (status === "booked") return "success";
-  if (status === "shortlist") return "warning";
-  if (status === "researching") return "muted";
-  return "danger";
+// ─── Pacing warnings ──────────────────────────────────────────────────────────
+
+export function getPacingWarnings(
+  days: Day[],
+  legs: Leg[],
+  maxHours: number
+): PacingWarning[] {
+  return days
+    .map((day) => {
+      const { hours } = getDayDriveStats(day, legs);
+      return { dayId: day.id, dayNumber: day.dayNumber, driveHours: hours, limit: maxHours };
+    })
+    .filter((w) => w.driveHours > w.limit);
 }
 
-export function statusToneFromVehicle(status: VehicleStatus) {
-  if (status === "done") return "success";
-  if (status === "watch") return "warning";
-  return "danger";
-}
+// ─── Day warnings (compliance + booking) ─────────────────────────────────────
 
-export function statusToneFromCompliance(status: ComplianceItem["status"]) {
-  if (status === "ready") return "success";
-  if (status === "watch") return "warning";
-  return "danger";
-}
+export function getDayWarnings(
+  day: Day,
+  legs: Leg[],
+  countryRules: CountryRule[],
+  checklistItems: ChecklistItem[],
+  stays: Stay[]
+): DayWarning[] {
+  const warnings: DayWarning[] = [];
+  const dayLegs = getLegsForDay(legs, day);
 
-export function statusToneFromRisk(severity: RiskItem["severity"]) {
-  if (severity === "critical") return "danger";
-  if (severity === "warning") return "warning";
-  return "muted";
-}
+  // Countries crossed on this day's legs
+  const countries = new Set(dayLegs.flatMap((l) => l.countriesCrossed));
 
-export function getRiskSummary(days: TripDay[]) {
-  return days.flatMap((day) =>
-    day.risks.filter((risk) => !risk.resolved).map((risk) => ({
-      id: `${day.id}-${risk.id}`,
-      dayId: day.id,
-      dayNumber: day.dayNumber,
-      title: risk.label,
-      detail: risk.detail,
-      severity: risk.severity,
-    }))
-  );
-}
-
-export function getNextActions(state: TripStateData) {
-  const bookings = getVisibleBookings(state.bookings, state.routeVariant);
-  const compliance = getVisibleComplianceCountries(state.complianceCountries, state.routeVariant);
-  return [
-    ...bookings
-      .filter((booking) => booking.status !== "booked")
-      .map((booking) => ({ id: booking.id, tone: statusToneFromBooking(booking.status), title: `Close ${booking.city} stay`, detail: booking.notes })),
-    ...compliance.flatMap((country) =>
-      country.items
-        .filter((item) => item.status === "needs-action")
-        .map((item) => ({ id: `${country.id}-${item.id}`, tone: "danger", title: item.label, detail: item.detail }))
-    ),
-    ...state.vehicleChecks.filter((item) => item.status === "todo").map((item) => ({ id: item.id, tone: "warning", title: item.label, detail: item.note })),
-  ].slice(0, 6);
-}
-
-export function getBudgetBreakdown(items: BudgetItem[]) {
-  const categories = new Map<BudgetCategory, { planned: number; actual: number }>();
-  for (const item of items) {
-    const current = categories.get(item.category) ?? { planned: 0, actual: 0 };
-    current.planned += item.planned;
-    current.actual += item.actual;
-    categories.set(item.category, current);
+  // Surface open compliance items for those countries
+  for (const rule of countryRules) {
+    if (!countries.has(rule.country)) continue;
+    for (const item of rule.items) {
+      if (item.status !== "done") {
+        warnings.push({
+          id: `compliance-${rule.id}-${item.id}`,
+          dayId: day.id,
+          type: "compliance",
+          label: item.label,
+          detail: item.detail,
+          countryRuleId: rule.id,
+          severity: item.status === "todo" ? "critical" : "warning",
+        });
+      }
+    }
   }
-  return categories;
-}
 
-export function groupVehicleChecks(checks: VehicleCheck[]) {
-  return checks.reduce<Record<string, VehicleCheck[]>>((acc, item) => {
-    acc[item.category] ??= [];
-    acc[item.category].push(item);
-    return acc;
-  }, {});
-}
+  // Booking warning if overnight stay is not booked
+  const stay = stays.find((s) => s.stopId === day.overnightStopId);
+  if (stay && stay.status !== "booked") {
+    warnings.push({
+      id: `booking-${stay.id}`,
+      dayId: day.id,
+      type: "booking",
+      label: `${stay.propertyName || "Stay"} not yet booked`,
+      detail: stay.status === "researching" ? "Still researching — confirm soon." : "Shortlisted — ready to book.",
+      severity: stay.status === "researching" ? "critical" : "warning",
+    });
+  }
 
-export function groupNotesByCategory(notes: TripStateData["notes"]) {
-  return notes.reduce<Record<NoteCategory, typeof notes>>(
-    (acc, note) => {
-      acc[note.category].push(note);
-      return acc;
-    },
-    { food: [], "swim-hike": [], detour: [], parking: [], later: [], general: [] }
+  // Checklist items for this day that are overdue / not done
+  const dayChecklist = checklistItems.filter(
+    (i) => i.scope === `day:${day.id}` && !i.done
   );
+  for (const item of dayChecklist) {
+    warnings.push({
+      id: `checklist-${item.id}`,
+      dayId: day.id,
+      type: "checklist",
+      label: item.label,
+      detail: item.dueBy ? `Due: ${item.dueBy}` : "",
+      severity: "warning",
+    });
+  }
+
+  return warnings;
+}
+
+// ─── Readiness score ──────────────────────────────────────────────────────────
+
+export function getBookingCompletion(stays: Stay[]): number {
+  if (!stays.length) return 100;
+  const score = stays.reduce((acc, s) => {
+    if (s.status === "booked") return acc + 1;
+    if (s.status === "shortlisted") return acc + 0.55;
+    return acc + 0.25;
+  }, 0);
+  return Math.round((score / stays.length) * 100);
+}
+
+export function getComplianceCompletion(rules: CountryRule[]): number {
+  const items = rules.flatMap((r) => r.items);
+  if (!items.length) return 100;
+  const score = items.reduce((acc, i) => {
+    if (i.status === "done") return acc + 1;
+    if (i.status === "in-progress") return acc + 0.55;
+    return acc;
+  }, 0);
+  return Math.round((score / items.length) * 100);
+}
+
+export function getVehicleCompletion(items: ChecklistItem[]): number {
+  const vehicle = items.filter((i) => i.category === "vehicle" || i.category === "safety-kit");
+  if (!vehicle.length) return 100;
+  const done = vehicle.filter((i) => i.done).length;
+  return Math.round((done / vehicle.length) * 100);
+}
+
+export function getTripReadiness(
+  stays: Stay[],
+  rules: CountryRule[],
+  vehicleItems: ChecklistItem[]
+): ReadinessScore {
+  const bookings = getBookingCompletion(stays);
+  const compliance = getComplianceCompletion(rules);
+  const vehicle = getVehicleCompletion(vehicleItems);
+  return {
+    bookings,
+    compliance,
+    vehicle,
+    overall: Math.round((bookings + compliance + vehicle) / 3),
+  };
+}
+
+// ─── Budget ───────────────────────────────────────────────────────────────────
+
+export function getBudgetSummary(stays: Stay[], lines: BudgetLine[]): BudgetSummary {
+  const accPlanned = stays.reduce((s, stay) => s + stay.costPlanned, 0);
+  const accActual = stays.reduce((s, stay) => s + stay.costActual, 0);
+
+  const categories = ["fuel", "tolls", "food", "activities", "parking", "other"] as const;
+  const byCategory = Object.fromEntries(
+    categories.map((cat) => {
+      const catLines = lines.filter((l) => l.category === cat);
+      return [cat, {
+        planned: catLines.reduce((s, l) => s + l.planned, 0),
+        actual: catLines.reduce((s, l) => s + l.actual, 0),
+      }];
+    })
+  ) as BudgetSummary["byCategory"];
+
+  const nonAccPlanned = Object.values(byCategory).reduce((s, v) => s + v.planned, 0);
+  const nonAccActual = Object.values(byCategory).reduce((s, v) => s + v.actual, 0);
+
+  return {
+    accommodation: { planned: accPlanned, actual: accActual },
+    byCategory,
+    total: {
+      planned: accPlanned + nonAccPlanned,
+      actual: accActual + nonAccActual,
+      remaining: (accPlanned + nonAccPlanned) - (accActual + nonAccActual),
+    },
+  };
+}
+
+// ─── Countries on route ───────────────────────────────────────────────────────
+
+export function getCountriesOnRoute(legs: Leg[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const leg of legs) {
+    for (const c of leg.countriesCrossed) {
+      if (!seen.has(c)) { seen.add(c); result.push(c); }
+    }
+  }
+  return result;
+}
+
+// ─── Formatting ───────────────────────────────────────────────────────────────
+
+export function formatDriveHours(hours: number): string {
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m.toString().padStart(2, "0")}m`;
+}
+
+export function formatDistance(km: number): string {
+  return `${km.toLocaleString()} km`;
+}
+
+export function formatCurrency(value: number, currency = "EUR"): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+export function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ─── Day for today ────────────────────────────────────────────────────────────
+
+export function getDayForDate(days: Day[], isoDate: string): Day | null {
+  return days.find((d) => d.date === isoDate) ?? null;
+}
+
+export function getCurrentExecutionDay(days: Day[]): Day {
+  const today = todayISO();
+  return (
+    getDayForDate(days, today) ??
+    days[days.length - 1] ??
+    days[0]
+  );
+}
+
+// ─── ID generation ────────────────────────────────────────────────────────────
+
+export function genId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }

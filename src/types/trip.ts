@@ -1,200 +1,217 @@
-﻿export type AppView =
-  | "today"
-  | "journey"
-  | "route"
-  | "stays"
-  | "prep"
-  | "notes";
+// ─── Primitives ───────────────────────────────────────────────────────────────
 
-export type RouteVariantId = "bohinj" | "bled";
-export type VariantScope = "all" | RouteVariantId;
+export type TripStatus = "draft" | "planning" | "ready" | "active" | "completed";
+export type AppMode = "planning" | "trip";
+export type AppView = "route" | "itinerary" | "stays" | "prep" | "notes";
+export type TripView = "today" | "stays" | "overview";
 
-export type StopKind = "origin" | "city" | "scenic" | "practical" | "finish";
+export type StopType = "origin" | "waypoint" | "overnight" | "destination";
+export type DayType = "driving" | "rest" | "mixed";
+export type BookingStatus = "researching" | "shortlisted" | "booked";
+export type ChecklistScope = "trip" | `day:${string}` | `stop:${string}`;
+export type ChecklistSource = "manual" | "country-rule";
+export type ChecklistStatus = "todo" | "in-progress" | "done";
+export type BudgetCategory = "fuel" | "tolls" | "food" | "activities" | "parking" | "other";
+export type AttachmentType = "url" | "image" | "document";
 
-export type BookingStatus =
-  | "booked"
-  | "researching"
-  | "shortlist"
-  | "missing";
+// ─── Core entities ────────────────────────────────────────────────────────────
 
-export type ComplianceStatus = "ready" | "needs-action" | "watch";
-export type VehicleStatus = "done" | "todo" | "watch";
-export type RiskSeverity = "info" | "warning" | "critical";
-export type NoteCategory =
-  | "food"
-  | "swim-hike"
-  | "detour"
-  | "parking"
-  | "later"
-  | "general";
-export type BudgetCategory =
-  | "accommodation"
-  | "tolls"
-  | "fuel"
-  | "parking"
-  | "food"
-  | "contingency";
-
-export interface RouteStop {
+export interface Trip {
   id: string;
   name: string;
-  country: string;
-  kind: StopKind;
-  coordinates: [number, number];
-  summary: string;
-  parkingBias: string;
-  markerLabel: string;
-  variantScope?: VariantScope;
+  originId: string;
+  destinationId: string;
+  startDate: string | null;    // ISO date string e.g. "2025-07-30"
+  endDate: string | null;
+  travelers: string;
+  vehicle: string;
+  currency: string;
+  maxDriveHoursPerDay: number; // default 7
+  status: TripStatus;
+  createdAt: string;
 }
 
-export interface DayChecklistItem {
+export interface Stop {
   id: string;
+  tripId: string;
+  name: string;
+  country: string;
+  coordinates: [number, number]; // [lat, lng]
+  type: StopType;
+  position: number;             // 0-based order index
+  isAlternative: boolean;
+  tags: string[];               // user-defined
+  notes: string;
+}
+
+export interface Leg {
+  id: string;
+  tripId: string;
+  fromStopId: string;
+  toStopId: string;
+  order: number;                // matches stop position sequence
+  distanceKm: number;
+  driveHours: number;
+  countriesCrossed: string[];   // e.g. ["Germany", "Austria"]
+  tollNotes: string;
+  riskNotes: string;
+}
+
+export interface Day {
+  id: string;
+  tripId: string;
+  date: string;                 // ISO date string
+  dayNumber: number;            // 1-based
+  legIds: string[];             // ordered — a day can cover multiple legs
+  overnightStopId: string;
+  type: DayType;
+  notes: string;
+}
+
+export interface Stay {
+  id: string;
+  tripId: string;
+  stopId: string;
+  checkIn: string;              // ISO date string
+  checkOut: string;             // ISO date string
+  propertyName: string;
+  address: string;
+  bookingUrl: string;
+  status: BookingStatus;
+  confirmationCode: string;
+  parkingIncluded: boolean;
+  parkingNotes: string;
+  checkInWindow: string;
+  cancellationPolicy: string;
+  costPlanned: number;
+  costActual: number;
+  notes: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  tripId: string;
   label: string;
   done: boolean;
+  scope: ChecklistScope;
+  category: string;             // user-defined tag
+  dueBy: string;                // e.g. "before Day 3", "T-1", ISO date, or ""
+  source: ChecklistSource;
+  countryRuleId?: string;       // set when source === "country-rule"
 }
 
-export interface RiskItem {
+export interface CountryRuleItem {
   id: string;
   label: string;
   detail: string;
-  severity: RiskSeverity;
-  resolved: boolean;
-}
-
-export interface TripDay {
-  id: string;
-  dayNumber: number;
-  dateLabel: string;
-  title: string;
-  routeLabel: string;
-  theme: string;
-  startStopId: string;
-  viaStopIds?: string[];
-  endStopId: string;
-  overnightStopId: string;
-  driveHours: number;
-  driveDistanceKm: number;
-  overnightLabel: string;
-  accommodationName: string;
-  accommodationStatus: BookingStatus;
-  parkingStrategy: string;
-  routeNotes: string;
-  highlights: string[];
-  tolls: string[];
-  risks: RiskItem[];
-  checklist: DayChecklistItem[];
-  prepItems: string[];
-  accommodationDetails: string;
-  parkingDetails: string;
-  activityIdeas: string[];
-  reminders: string[];
-  notes: string;
-}
-
-export interface Booking {
-  id: string;
-  stopId: string;
-  dateLabel: string;
-  city: string;
-  propertyName: string;
-  status: BookingStatus;
-  parkingIncluded: boolean;
-  cancellationPolicy: string;
-  checkInWindow: string;
-  notes: string;
-  confirmationCode: string;
-  variantScope?: VariantScope;
-}
-
-export interface ComplianceItem {
-  id: string;
-  label: string;
-  detail: string;
-  status: ComplianceStatus;
+  status: ChecklistStatus;
   dueBy?: string;
-  stopId?: string;
+  seeded: boolean;
 }
 
-export interface ComplianceCountry {
+export interface CountryRule {
   id: string;
+  tripId: string;
   country: string;
-  summary: string;
-  parkingStrategy: string;
+  seeded: boolean;
   documents: string[];
+  vignetteRequired: boolean;
+  vignetteUrl: string;
+  emissionZoneNotes: string;
+  speedLimitNotes: string;
+  tollNotes: string;
   borderNotes: string;
   commonMistakes: string[];
-  items: ComplianceItem[];
-  variantScope?: VariantScope;
+  items: CountryRuleItem[];
 }
 
-export interface BudgetItem {
+export interface BudgetLine {
   id: string;
+  tripId: string;
   category: BudgetCategory;
   label: string;
   planned: number;
   actual: number;
+  stopId?: string;
   dayId?: string;
-  variantScope?: VariantScope;
 }
 
-export interface VehicleCheck {
+export interface Note {
   id: string;
-  category: "vehicle" | "legal" | "roadside" | "comfort";
-  label: string;
-  status: VehicleStatus;
-  note: string;
-}
-
-export interface TripNote {
-  id: string;
-  category: NoteCategory;
+  tripId: string;
   title: string;
   body: string;
-  linkedStopId?: string;
+  tags: string[];               // user-defined
+  stopId?: string;
+  dayId?: string;
   pinned: boolean;
+  createdAt: string;
 }
 
-export interface RouteVariantConfig {
-  id: RouteVariantId;
+export interface Attachment {
+  id: string;
+  tripId: string;
+  type: AttachmentType;
   label: string;
-  shortLabel: string;
-  summary: string;
-  travelTone: string;
-  tradeoff: string;
-  impactSummary: string;
-  days: TripDay[];
-  stopIds: string[];
+  url: string;
+  stayId?: string;
+  stopId?: string;
+  dayId?: string;
 }
 
-export interface TripSeed {
-  title: string;
-  subtitle: string;
-  routeSummary: string;
-  travelWindow: string;
-  travelers: string;
-  carLabel: string;
-  routeVariants: Record<RouteVariantId, RouteVariantConfig>;
-  stops: RouteStop[];
-  bookings: Booking[];
-  complianceCountries: ComplianceCountry[];
-  budgetItems: BudgetItem[];
-  vehicleChecks: VehicleCheck[];
-  notes: TripNote[];
-  defaultExpandedDayIds: string[];
-  defaultSelectedDayId: string;
-  defaultExecutionDayId: string;
+// ─── Derived / computed helpers ───────────────────────────────────────────────
+
+export interface PacingWarning {
+  dayId: string;
+  dayNumber: number;
+  driveHours: number;
+  limit: number;
 }
 
-export interface TripStateData {
-  routeVariant: RouteVariantId;
+export interface DayWarning {
+  id: string;
+  dayId: string;
+  type: "compliance" | "booking" | "checklist";
+  label: string;
+  detail: string;
+  countryRuleId?: string;
+  severity: "critical" | "warning";
+}
+
+export interface ReadinessScore {
+  overall: number;
+  bookings: number;
+  compliance: number;
+  vehicle: number;
+}
+
+export interface BudgetSummary {
+  accommodation: { planned: number; actual: number };
+  byCategory: Record<BudgetCategory, { planned: number; actual: number }>;
+  total: { planned: number; actual: number; remaining: number };
+}
+
+// ─── Full app state ───────────────────────────────────────────────────────────
+
+export interface TripState {
+  // Data
+  trips: Trip[];
+  stops: Stop[];
+  legs: Leg[];
+  days: Day[];
+  stays: Stay[];
+  checklistItems: ChecklistItem[];
+  countryRules: CountryRule[];
+  budgetLines: BudgetLine[];
+  notes: Note[];
+  attachments: Attachment[];
+
+  // UI state
+  activeTripId: string | null;
+  appMode: AppMode;
   activeView: AppView;
-  selectedDayId: string;
-  executionDayId: string;
+  activeTripView: TripView;
+  selectedDayId: string | null;
+  executionDayId: string | null;
   expandedDayIds: string[];
-  days: TripDay[];
-  bookings: Booking[];
-  complianceCountries: ComplianceCountry[];
-  budgetItems: BudgetItem[];
-  vehicleChecks: VehicleCheck[];
-  notes: TripNote[];
 }

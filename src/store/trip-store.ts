@@ -1,227 +1,472 @@
-﻿"use client";
+"use client";
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { TRIP_SEED } from "@/data/trip-seed";
-import {
-  cloneBookings,
-  cloneBudgetItems,
-  cloneComplianceCountries,
-  cloneDays,
-  cloneNotes,
-  cloneVehicleChecks,
-} from "@/lib/trip-utils";
+import { SEED_STATE } from "@/data/trip-seed";
+import { genId } from "@/lib/trip-utils";
 import type {
+  AppMode,
   AppView,
-  ComplianceStatus,
-  NoteCategory,
-  RouteVariantId,
-  TripDay,
-  TripStateData,
-  VehicleStatus,
+  Attachment,
+  AttachmentType,
+  BookingStatus,
+  BudgetCategory,
+  BudgetLine,
+  ChecklistItem,
+  ChecklistScope,
+  ChecklistSource,
+  CountryRule,
+  Day,
+  DayType,
+  Leg,
+  Note,
+  Stay,
+  Stop,
+  StopType,
+  Trip,
+  TripState,
+  TripStatus,
+  TripView,
 } from "@/types/trip";
 
-function buildInitialState(routeVariant: RouteVariantId = "bohinj"): TripStateData {
+// ─── Initial state ────────────────────────────────────────────────────────────
+
+function buildInitialState(): TripState {
   return {
-    routeVariant,
-    activeView: "today",
-    selectedDayId: TRIP_SEED.defaultSelectedDayId,
-    executionDayId: TRIP_SEED.defaultExecutionDayId,
-    expandedDayIds: [...TRIP_SEED.defaultExpandedDayIds],
-    days: cloneDays(TRIP_SEED.routeVariants[routeVariant].days),
-    bookings: cloneBookings(TRIP_SEED.bookings),
-    complianceCountries: cloneComplianceCountries(TRIP_SEED.complianceCountries),
-    budgetItems: cloneBudgetItems(TRIP_SEED.budgetItems),
-    vehicleChecks: cloneVehicleChecks(TRIP_SEED.vehicleChecks),
-    notes: cloneNotes(TRIP_SEED.notes),
+    trips: [],
+    stops: [],
+    legs: [],
+    days: [],
+    stays: [],
+    checklistItems: [],
+    countryRules: [],
+    budgetLines: [],
+    notes: [],
+    attachments: [],
+    activeTripId: null,
+    appMode: "planning",
+    activeView: "route",
+    activeTripView: "today",
+    selectedDayId: null,
+    executionDayId: null,
+    expandedDayIds: [],
+    ...SEED_STATE,
   };
 }
 
-type TripStore = TripStateData & {
+// ─── Store type ───────────────────────────────────────────────────────────────
+
+type TripStore = TripState & {
+  // UI
+  setAppMode: (mode: AppMode) => void;
   setActiveView: (view: AppView) => void;
-  setRouteVariant: (variant: RouteVariantId) => void;
-  setSelectedDayId: (dayId: string) => void;
-  setExecutionDayId: (dayId: string) => void;
-  toggleExpandedDay: (dayId: string) => void;
-  expandAllDays: () => void;
+  setActiveTripView: (view: TripView) => void;
+  setActiveTripId: (id: string | null) => void;
+  setSelectedDayId: (id: string | null) => void;
+  setExecutionDayId: (id: string | null) => void;
+  toggleExpandedDay: (id: string) => void;
+  expandAllDays: (tripId: string) => void;
   collapseAllDays: () => void;
-  toggleChecklistItem: (dayId: string, itemId: string) => void;
-  updateDayText: (dayId: string, field: "notes" | "parkingStrategy" | "parkingDetails" | "accommodationName" | "accommodationDetails", value: string) => void;
-  updateBooking: (bookingId: string, field: "propertyName" | "status" | "parkingIncluded" | "cancellationPolicy" | "checkInWindow" | "notes" | "confirmationCode", value: string | boolean) => void;
-  updateComplianceItemStatus: (countryId: string, itemId: string, status: ComplianceStatus) => void;
-  updateBudgetItem: (itemId: string, field: "planned" | "actual" | "label", value: number | string) => void;
-  updateVehicleCheck: (itemId: string, status: VehicleStatus, note?: string) => void;
-  addNote: (payload: { title: string; body: string; category: NoteCategory }) => void;
-  updateNote: (noteId: string, field: "title" | "body" | "category" | "pinned", value: string | boolean) => void;
-  toggleRiskResolved: (dayId: string, riskId: string) => void;
-  resetTrip: () => void;
+
+  // Trip CRUD
+  createTrip: (data: Omit<Trip, "id" | "createdAt" | "status">) => string;
+  updateTrip: (id: string, patch: Partial<Trip>) => void;
+  deleteTrip: (id: string) => void;
+  duplicateTrip: (id: string) => string;
+  setTripStatus: (id: string, status: TripStatus) => void;
+
+  // Stops
+  addStop: (data: Omit<Stop, "id">) => string;
+  updateStop: (id: string, patch: Partial<Stop>) => void;
+  removeStop: (id: string) => void;
+  reorderStops: (tripId: string, fromPos: number, toPos: number) => void;
+
+  // Legs
+  addLeg: (data: Omit<Leg, "id">) => string;
+  updateLeg: (id: string, patch: Partial<Leg>) => void;
+  removeLeg: (id: string) => void;
+
+  // Days
+  addDay: (data: Omit<Day, "id">) => string;
+  updateDay: (id: string, patch: Partial<Day>) => void;
+  removeDay: (id: string) => void;
+
+  // Stays
+  createStay: (data: Omit<Stay, "id">) => string;
+  updateStay: (id: string, patch: Partial<Stay>) => void;
+  removeStay: (id: string) => void;
+
+  // Checklist
+  addChecklistItem: (data: Omit<ChecklistItem, "id">) => string;
+  toggleChecklistItem: (id: string) => void;
+  updateChecklistItem: (id: string, patch: Partial<ChecklistItem>) => void;
+  removeChecklistItem: (id: string) => void;
+
+  // Country rules
+  addCountryRule: (data: Omit<CountryRule, "id">) => string;
+  updateCountryRule: (id: string, patch: Partial<CountryRule>) => void;
+  updateCountryRuleItemStatus: (
+    ruleId: string,
+    itemId: string,
+    status: import("@/types/trip").ChecklistStatus
+  ) => void;
+  removeCountryRule: (id: string) => void;
+
+  // Budget
+  addBudgetLine: (data: Omit<BudgetLine, "id">) => string;
+  updateBudgetLine: (id: string, patch: Partial<BudgetLine>) => void;
+  removeBudgetLine: (id: string) => void;
+
+  // Notes
+  addNote: (data: Omit<Note, "id" | "createdAt">) => string;
+  updateNote: (id: string, patch: Partial<Note>) => void;
+  removeNote: (id: string) => void;
+  toggleNotePin: (id: string) => void;
+
+  // Attachments
+  addAttachment: (data: Omit<Attachment, "id">) => string;
+  removeAttachment: (id: string) => void;
+
+  // Reset
+  resetToSeed: () => void;
 };
 
-function mergeEditableFields(sourceDay: TripDay, existingDay?: TripDay): TripDay {
-  if (!existingDay) return sourceDay;
-  return {
-    ...sourceDay,
-    accommodationName: existingDay.accommodationName,
-    accommodationStatus: existingDay.accommodationStatus,
-    accommodationDetails: existingDay.accommodationDetails,
-    parkingStrategy: existingDay.parkingStrategy,
-    parkingDetails: existingDay.parkingDetails,
-    notes: existingDay.notes,
-    checklist: sourceDay.checklist.map((item) => {
-      const match = existingDay.checklist.find((existingItem) => existingItem.id === item.id);
-      return match ? { ...item, done: match.done } : item;
-    }),
-    risks: sourceDay.risks.map((risk) => {
-      const match = existingDay.risks.find((existingRisk) => existingRisk.id === risk.id);
-      return match ? { ...risk, resolved: match.resolved } : risk;
-    }),
-  };
-}
-
-function normalizeRouteVariant(value: unknown): RouteVariantId {
-  if (value === "bled") return "bled";
-  return "bohinj";
-}
-
-function normalizeActiveView(value: unknown): AppView {
-  switch (value) {
-    case "today":
-    case "journey":
-    case "route":
-    case "stays":
-    case "prep":
-    case "notes":
-      return value;
-    case "overview":
-      return "today";
-    case "itinerary":
-      return "journey";
-    case "map":
-      return "route";
-    case "bookings":
-    case "budget":
-      return "stays";
-    case "compliance":
-    case "readiness":
-      return "prep";
-    default:
-      return "today";
-  }
-}
+// ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useTripStore = create<TripStore>()(
   persist(
     (set, get) => ({
       ...buildInitialState(),
+
+      // ── UI ──────────────────────────────────────────────────────────────────
+      setAppMode: (appMode) => set({ appMode }),
       setActiveView: (activeView) => set({ activeView }),
-      setRouteVariant: (routeVariant) =>
-        set((state) => ({
-          routeVariant,
-          days: cloneDays(TRIP_SEED.routeVariants[routeVariant].days).map((day) =>
-            mergeEditableFields(day, state.days.find((existingDay) => existingDay.id === day.id))
-          ),
-        })),
+      setActiveTripView: (activeTripView) => set({ activeTripView }),
+      setActiveTripId: (activeTripId) => set({ activeTripId }),
       setSelectedDayId: (selectedDayId) => set({ selectedDayId }),
       setExecutionDayId: (executionDayId) => set({ executionDayId }),
-      toggleExpandedDay: (dayId) =>
-        set((state) => ({
-          expandedDayIds: state.expandedDayIds.includes(dayId)
-            ? state.expandedDayIds.filter((item) => item !== dayId)
-            : [...state.expandedDayIds, dayId],
+      toggleExpandedDay: (id) =>
+        set((s) => ({
+          expandedDayIds: s.expandedDayIds.includes(id)
+            ? s.expandedDayIds.filter((x) => x !== id)
+            : [...s.expandedDayIds, id],
         })),
-      expandAllDays: () => set((state) => ({ expandedDayIds: state.days.map((day) => day.id) })),
+      expandAllDays: (tripId) =>
+        set((s) => ({
+          expandedDayIds: s.days.filter((d) => d.tripId === tripId).map((d) => d.id),
+        })),
       collapseAllDays: () => set({ expandedDayIds: [] }),
-      toggleChecklistItem: (dayId, itemId) =>
-        set((state) => ({
-          days: state.days.map((day) =>
-            day.id === dayId
-              ? { ...day, checklist: day.checklist.map((item) => (item.id === itemId ? { ...item, done: !item.done } : item)) }
-              : day
-          ),
+
+      // ── Trip CRUD ────────────────────────────────────────────────────────────
+      createTrip: (data) => {
+        const id = genId("trip");
+        set((s) => ({
+          trips: [...s.trips, { ...data, id, status: "draft" as TripStatus, createdAt: new Date().toISOString() }],
+          activeTripId: id,
+        }));
+        return id;
+      },
+      updateTrip: (id, patch) =>
+        set((s) => ({ trips: s.trips.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
+      deleteTrip: (id) =>
+        set((s) => ({
+          trips: s.trips.filter((t) => t.id !== id),
+          stops: s.stops.filter((x) => x.tripId !== id),
+          legs: s.legs.filter((x) => x.tripId !== id),
+          days: s.days.filter((x) => x.tripId !== id),
+          stays: s.stays.filter((x) => x.tripId !== id),
+          checklistItems: s.checklistItems.filter((x) => x.tripId !== id),
+          countryRules: s.countryRules.filter((x) => x.tripId !== id),
+          budgetLines: s.budgetLines.filter((x) => x.tripId !== id),
+          notes: s.notes.filter((x) => x.tripId !== id),
+          attachments: s.attachments.filter((x) => x.tripId !== id),
+          activeTripId: s.activeTripId === id ? null : s.activeTripId,
         })),
-      updateDayText: (dayId, field, value) =>
-        set((state) => ({
-          days: state.days.map((day) => (day.id === dayId ? { ...day, [field]: value } : day)),
+      duplicateTrip: (sourceId) => {
+        const s = get();
+        const source = s.trips.find((t) => t.id === sourceId);
+        if (!source) return sourceId;
+
+        const newTripId = genId("trip");
+        const idMap = new Map<string, string>();
+        const remap = (oldId: string, prefix: string) => {
+          if (!idMap.has(oldId)) idMap.set(oldId, genId(prefix));
+          return idMap.get(oldId)!;
+        };
+
+        const newTrip: Trip = {
+          ...source,
+          id: newTripId,
+          name: `${source.name} (copy)`,
+          status: "draft",
+          createdAt: new Date().toISOString(),
+        };
+
+        const newStops = s.stops
+          .filter((x) => x.tripId === sourceId)
+          .map((x) => ({ ...x, id: remap(x.id, "stop"), tripId: newTripId }));
+
+        const newLegs = s.legs
+          .filter((x) => x.tripId === sourceId)
+          .map((x) => ({
+            ...x,
+            id: remap(x.id, "leg"),
+            tripId: newTripId,
+            fromStopId: remap(x.fromStopId, "stop"),
+            toStopId: remap(x.toStopId, "stop"),
+          }));
+
+        const newDays = s.days
+          .filter((x) => x.tripId === sourceId)
+          .map((x) => ({
+            ...x,
+            id: remap(x.id, "day"),
+            tripId: newTripId,
+            legIds: x.legIds.map((lid) => remap(lid, "leg")),
+            overnightStopId: remap(x.overnightStopId, "stop"),
+            notes: "",
+          }));
+
+        const newStays = s.stays
+          .filter((x) => x.tripId === sourceId)
+          .map((x) => ({
+            ...x,
+            id: remap(x.id, "stay"),
+            tripId: newTripId,
+            stopId: remap(x.stopId, "stop"),
+            propertyName: "",
+            address: "",
+            bookingUrl: "",
+            confirmationCode: "",
+            status: "researching" as BookingStatus,
+            costActual: 0,
+            notes: "",
+          }));
+
+        const newChecklist = s.checklistItems
+          .filter((x) => x.tripId === sourceId)
+          .map((x) => ({
+            ...x,
+            id: genId("cl"),
+            tripId: newTripId,
+            done: false,
+            scope: x.scope.startsWith("day:")
+              ? (`day:${remap(x.scope.slice(4), "day")}` as ChecklistScope)
+              : x.scope.startsWith("stop:")
+              ? (`stop:${remap(x.scope.slice(5), "stop")}` as ChecklistScope)
+              : x.scope,
+          }));
+
+        const newRules = s.countryRules
+          .filter((x) => x.tripId === sourceId)
+          .map((x) => ({
+            ...x,
+            id: genId("cr"),
+            tripId: newTripId,
+            items: x.items.map((i) => ({ ...i, status: "todo" as const })),
+          }));
+
+        const newBudget = s.budgetLines
+          .filter((x) => x.tripId === sourceId)
+          .map((x) => ({ ...x, id: genId("bl"), tripId: newTripId, actual: 0 }));
+
+        const newNotes = s.notes
+          .filter((x) => x.tripId === sourceId)
+          .map((x) => ({
+            ...x,
+            id: genId("note"),
+            tripId: newTripId,
+            body: "",
+            createdAt: new Date().toISOString(),
+          }));
+
+        set((prev) => ({
+          trips: [...prev.trips, newTrip],
+          stops: [...prev.stops, ...newStops],
+          legs: [...prev.legs, ...newLegs],
+          days: [...prev.days, ...newDays],
+          stays: [...prev.stays, ...newStays],
+          checklistItems: [...prev.checklistItems, ...newChecklist],
+          countryRules: [...prev.countryRules, ...newRules],
+          budgetLines: [...prev.budgetLines, ...newBudget],
+          notes: [...prev.notes, ...newNotes],
+          activeTripId: newTripId,
+        }));
+
+        return newTripId;
+      },
+      setTripStatus: (id, status) =>
+        set((s) => ({ trips: s.trips.map((t) => (t.id === id ? { ...t, status } : t)) })),
+
+      // ── Stops ────────────────────────────────────────────────────────────────
+      addStop: (data) => {
+        const id = genId("stop");
+        set((s) => ({ stops: [...s.stops, { ...data, id }] }));
+        return id;
+      },
+      updateStop: (id, patch) =>
+        set((s) => ({ stops: s.stops.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      removeStop: (id) =>
+        set((s) => ({
+          stops: s.stops.filter((x) => x.id !== id),
+          stays: s.stays.filter((x) => x.stopId !== id),
         })),
-      updateBooking: (bookingId, field, value) =>
-        set((state) => {
-          const updatedBookings = state.bookings.map((booking) => (booking.id === bookingId ? { ...booking, [field]: value } : booking));
+      reorderStops: (tripId, fromPos, toPos) =>
+        set((s) => {
+          const tripStops = s.stops
+            .filter((x) => x.tripId === tripId)
+            .sort((a, b) => a.position - b.position);
+          const [moved] = tripStops.splice(fromPos, 1);
+          tripStops.splice(toPos, 0, moved);
+          const updated = tripStops.map((st, i) => ({ ...st, position: i }));
           return {
-            bookings: updatedBookings,
-            days: state.days.map((day) => {
-              const booking = updatedBookings.find((entry) => entry.stopId === day.overnightStopId);
-              if (!booking) return day;
-              return {
-                ...day,
-                accommodationStatus: booking.status,
-                accommodationName: booking.propertyName,
-              };
-            }),
+            stops: s.stops.map(
+              (st) => updated.find((u) => u.id === st.id) ?? st
+            ),
           };
         }),
-      updateComplianceItemStatus: (countryId, itemId, status) =>
-        set((state) => ({
-          complianceCountries: state.complianceCountries.map((country) =>
-            country.id === countryId
-              ? { ...country, items: country.items.map((item) => (item.id === itemId ? { ...item, status } : item)) }
-              : country
+
+      // ── Legs ─────────────────────────────────────────────────────────────────
+      addLeg: (data) => {
+        const id = genId("leg");
+        set((s) => ({ legs: [...s.legs, { ...data, id }] }));
+        return id;
+      },
+      updateLeg: (id, patch) =>
+        set((s) => ({ legs: s.legs.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      removeLeg: (id) =>
+        set((s) => ({
+          legs: s.legs.filter((x) => x.id !== id),
+          days: s.days.map((d) => ({ ...d, legIds: d.legIds.filter((lid) => lid !== id) })),
+        })),
+
+      // ── Days ─────────────────────────────────────────────────────────────────
+      addDay: (data) => {
+        const id = genId("day");
+        set((s) => ({ days: [...s.days, { ...data, id }] }));
+        return id;
+      },
+      updateDay: (id, patch) =>
+        set((s) => ({ days: s.days.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      removeDay: (id) =>
+        set((s) => ({
+          days: s.days.filter((x) => x.id !== id),
+          checklistItems: s.checklistItems.filter((x) => x.scope !== `day:${id}`),
+        })),
+
+      // ── Stays ─────────────────────────────────────────────────────────────────
+      createStay: (data) => {
+        const id = genId("stay");
+        set((s) => ({ stays: [...s.stays, { ...data, id }] }));
+        return id;
+      },
+      updateStay: (id, patch) =>
+        set((s) => ({ stays: s.stays.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      removeStay: (id) =>
+        set((s) => ({
+          stays: s.stays.filter((x) => x.id !== id),
+          attachments: s.attachments.filter((x) => x.stayId !== id),
+        })),
+
+      // ── Checklist ────────────────────────────────────────────────────────────
+      addChecklistItem: (data) => {
+        const id = genId("cl");
+        set((s) => ({ checklistItems: [...s.checklistItems, { ...data, id }] }));
+        return id;
+      },
+      toggleChecklistItem: (id) =>
+        set((s) => ({
+          checklistItems: s.checklistItems.map((x) =>
+            x.id === id ? { ...x, done: !x.done } : x
           ),
         })),
-      updateBudgetItem: (itemId, field, value) =>
-        set((state) => ({
-          budgetItems: state.budgetItems.map((item) => (item.id === itemId ? { ...item, [field]: value } : item)),
+      updateChecklistItem: (id, patch) =>
+        set((s) => ({
+          checklistItems: s.checklistItems.map((x) => (x.id === id ? { ...x, ...patch } : x)),
         })),
-      updateVehicleCheck: (itemId, status, note) =>
-        set((state) => ({
-          vehicleChecks: state.vehicleChecks.map((item) => (item.id === itemId ? { ...item, status, note: note ?? item.note } : item)),
+      removeChecklistItem: (id) =>
+        set((s) => ({ checklistItems: s.checklistItems.filter((x) => x.id !== id) })),
+
+      // ── Country rules ─────────────────────────────────────────────────────────
+      addCountryRule: (data) => {
+        const id = genId("cr");
+        set((s) => ({ countryRules: [...s.countryRules, { ...data, id }] }));
+        return id;
+      },
+      updateCountryRule: (id, patch) =>
+        set((s) => ({
+          countryRules: s.countryRules.map((x) => (x.id === id ? { ...x, ...patch } : x)),
         })),
-      addNote: ({ title, body, category }) =>
-        set((state) => ({
-          notes: [{ id: `note-${Date.now()}`, title, body, category, pinned: false }, ...state.notes],
-        })),
-      updateNote: (noteId, field, value) =>
-        set((state) => ({
-          notes: state.notes.map((note) => (note.id === noteId ? { ...note, [field]: value } : note)),
-        })),
-      toggleRiskResolved: (dayId, riskId) =>
-        set((state) => ({
-          days: state.days.map((day) =>
-            day.id === dayId ? { ...day, risks: day.risks.map((risk) => (risk.id === riskId ? { ...risk, resolved: !risk.resolved } : risk)) } : day
+      updateCountryRuleItemStatus: (ruleId, itemId, status) =>
+        set((s) => ({
+          countryRules: s.countryRules.map((r) =>
+            r.id === ruleId
+              ? {
+                  ...r,
+                  items: r.items.map((i) => (i.id === itemId ? { ...i, status } : i)),
+                }
+              : r
           ),
         })),
-      resetTrip: () => set(buildInitialState(get().routeVariant)),
+      removeCountryRule: (id) =>
+        set((s) => ({ countryRules: s.countryRules.filter((x) => x.id !== id) })),
+
+      // ── Budget ────────────────────────────────────────────────────────────────
+      addBudgetLine: (data) => {
+        const id = genId("bl");
+        set((s) => ({ budgetLines: [...s.budgetLines, { ...data, id }] }));
+        return id;
+      },
+      updateBudgetLine: (id, patch) =>
+        set((s) => ({
+          budgetLines: s.budgetLines.map((x) => (x.id === id ? { ...x, ...patch } : x)),
+        })),
+      removeBudgetLine: (id) =>
+        set((s) => ({ budgetLines: s.budgetLines.filter((x) => x.id !== id) })),
+
+      // ── Notes ─────────────────────────────────────────────────────────────────
+      addNote: (data) => {
+        const id = genId("note");
+        set((s) => ({
+          notes: [{ ...data, id, createdAt: new Date().toISOString() }, ...s.notes],
+        }));
+        return id;
+      },
+      updateNote: (id, patch) =>
+        set((s) => ({ notes: s.notes.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      removeNote: (id) =>
+        set((s) => ({ notes: s.notes.filter((x) => x.id !== id) })),
+      toggleNotePin: (id) =>
+        set((s) => ({
+          notes: s.notes.map((x) => (x.id === id ? { ...x, pinned: !x.pinned } : x)),
+        })),
+
+      // ── Attachments ───────────────────────────────────────────────────────────
+      addAttachment: (data) => {
+        const id = genId("att");
+        set((s) => ({ attachments: [...s.attachments, { ...data, id }] }));
+        return id;
+      },
+      removeAttachment: (id) =>
+        set((s) => ({ attachments: s.attachments.filter((x) => x.id !== id) })),
+
+      // ── Reset ─────────────────────────────────────────────────────────────────
+      resetToSeed: () => set(buildInitialState()),
     }),
     {
-      name: "road-trip-os-state",
-      version: 2,
-      partialize: (state) => ({
-        routeVariant: state.routeVariant,
-        activeView: state.activeView,
-        selectedDayId: state.selectedDayId,
-        executionDayId: state.executionDayId,
-        expandedDayIds: state.expandedDayIds,
-        days: state.days,
-        bookings: state.bookings,
-        complianceCountries: state.complianceCountries,
-        budgetItems: state.budgetItems,
-        vehicleChecks: state.vehicleChecks,
-        notes: state.notes,
-      }),
-      migrate: (persistedState) => {
-        if (!persistedState || typeof persistedState !== "object") return buildInitialState();
-        const routeVariant = normalizeRouteVariant((persistedState as Partial<TripStore>).routeVariant);
-        const baseState = buildInitialState(routeVariant);
-        const selectedDayId = (persistedState as Partial<TripStore>).selectedDayId;
-        const executionDayId = (persistedState as Partial<TripStore>).executionDayId;
-        const expandedDayIds = (persistedState as Partial<TripStore>).expandedDayIds;
-        return {
-          ...baseState,
-          activeView: normalizeActiveView((persistedState as Partial<TripStore>).activeView),
-          selectedDayId: typeof selectedDayId === "string" ? selectedDayId : baseState.selectedDayId,
-          executionDayId: typeof executionDayId === "string" ? executionDayId : baseState.executionDayId,
-          expandedDayIds: Array.isArray(expandedDayIds) ? expandedDayIds.filter((value): value is string => typeof value === "string") : baseState.expandedDayIds,
-        };
+      name: "road-trip-planner-v3",
+      version: 3,
+      migrate: (persisted) => {
+        // If persisted state is unreadable or from old schema, reset to seed
+        if (
+          !persisted ||
+          typeof persisted !== "object" ||
+          !("trips" in (persisted as object))
+        ) {
+          return buildInitialState();
+        }
+        return persisted as TripState;
       },
     }
   )
