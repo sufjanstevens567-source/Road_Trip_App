@@ -22,11 +22,11 @@ import {
 } from "@/lib/trip-utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { SectionLead, StatusPill } from "@/components/shared/ui-helpers";
-import type { Day } from "@/types/trip";
+import { StatusPill } from "@/components/shared/ui-helpers";
 
 export function TodayScreen() {
   const state = useTripStore();
+  const toggleChecklistItem = useTripStore((s) => s.toggleChecklistItem);
   const activeTrip = getActiveTrip(state);
   const [showTomorrow, setShowTomorrow] = useState(false);
 
@@ -48,9 +48,6 @@ export function TodayScreen() {
   const todayWarnings = getDayWarnings(today, legs, rules, checklist, stays);
   const dayChecklist = getChecklistForDay(checklist, today.id);
   const dayLegs = getLegsForDay(legs, today);
-
-  const toggleChecklistItem = useTripStore((s) => s.toggleChecklistItem);
-  const updateStay = useTripStore((s) => s.updateStay);
 
   const todayOvernightStop = stops.find((s) => s.id === today.overnightStopId);
 
@@ -76,7 +73,7 @@ export function TodayScreen() {
       {dayLegs.length > 0 ? (
         <Card className="p-4 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Today's drive
+            Today&apos;s drive
           </p>
           <div className="space-y-2">
             {dayLegs.map((leg) => {
@@ -111,7 +108,7 @@ export function TodayScreen() {
       {dayChecklist.length > 0 && (
         <Card className="p-4 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Today's checklist
+            Today&apos;s checklist
           </p>
           <div className="space-y-2">
             {dayChecklist.map((item) => (
@@ -144,7 +141,7 @@ export function TodayScreen() {
       {todayStay && (
         <Card className="p-4 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Tonight's stay
+            Tonight&apos;s stay
           </p>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between items-center">
@@ -217,7 +214,7 @@ export function TodayScreen() {
             onClick={() => setShowTomorrow(!showTomorrow)}
           >
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Tomorrow's preview
+              Tomorrow&apos;s preview
             </p>
             <ChevronDown
               className={`size-4 transition-transform ${

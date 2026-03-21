@@ -93,3 +93,71 @@
 .leaflet-control-attribution {
   font-size: 10px;
 }
+
+@keyframes view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes check-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(63, 126, 88, 0.18);
+  }
+  50% {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 10px rgba(63, 126, 88, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(63, 126, 88, 0);
+  }
+}
+
+@layer utilities {
+  .view-stage {
+    animation: view-enter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .interactive-lift {
+    transition:
+      transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 160ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .interactive-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  }
+
+  .check-celebrate {
+    animation: check-pulse 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .view-stage,
+  .check-celebrate {
+    animation: none !important;
+  }
+
+  .interactive-lift {
+    transition: none !important;
+  }
+
+  .interactive-lift:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

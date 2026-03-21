@@ -12,8 +12,7 @@ import {
   formatDistance,
 } from "@/lib/trip-utils";
 import { Card } from "@/components/ui/card";
-import { SectionLead, StatusPill } from "@/components/shared/ui-helpers";
-import type { Stop } from "@/types/trip";
+import { StatusPill } from "@/components/shared/ui-helpers";
 
 const SimpleRouteMap = dynamic(
   () => import("@/components/planning/simple-route-map").then((m) => ({ default: m.SimpleRouteMap })),
@@ -95,7 +94,7 @@ export function OverviewTab() {
           All stops
         </p>
         <div className="space-y-2">
-          {stops.map((stop, i) => {
+          {stops.map((stop) => {
             const day = days.find((d) => d.overnightStopId === stop.id);
             const isPassed = day && day.date < today;
             const isCurrent = day && day.date === today;

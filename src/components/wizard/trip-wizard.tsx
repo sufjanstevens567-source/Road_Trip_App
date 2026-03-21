@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Check, MapPin, Plus, X } from "lucide-react";
-import { buildCountryRule, getSeededCountryRule, listSeededCountries } from "@/data/country-rules-db";
+import { ArrowLeft, ArrowRight, Check, MapPin, X } from "lucide-react";
+import { buildCountryRule, getSeededCountryRule } from "@/data/country-rules-db";
 import { estimateDriveStats, genId } from "@/lib/trip-utils";
 import { useTripStore } from "@/store/trip-store";
-import type { Leg, Stop, StopType } from "@/types/trip";
+import type { StopType } from "@/types/trip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 // ─── Simple geocoder (nominatim) ─────────────────────────────────────────────
 
@@ -190,8 +189,6 @@ export function TripWizard({ onClose }: { onClose: () => void }) {
   function finalize(addRules: boolean) {
     if (!data.origin || !data.destination) return;
 
-    const tripId = genId("trip");
-
     // Create trip
     store.createTrip({
       name: data.tripName || `${data.origin.name} → ${data.destination.name}`,
@@ -236,7 +233,6 @@ export function TripWizard({ onClose }: { onClose: () => void }) {
       : new Date();
     let hoursToday = 0;
     let todayLegIds: string[] = [];
-    const overnightStopId = stopIds[0];
     let todayOvernightIdx = 0;
 
     for (let i = 1; i < allStops.length; i++) {

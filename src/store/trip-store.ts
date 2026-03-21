@@ -4,26 +4,21 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { SEED_STATE } from "@/data/trip-seed";
-import { genId } from "@/lib/trip-utils";
+import { estimateDriveStats, genId } from "@/lib/trip-utils";
 import type {
   AppMode,
   AppView,
   Attachment,
-  AttachmentType,
   BookingStatus,
-  BudgetCategory,
   BudgetLine,
   ChecklistItem,
   ChecklistScope,
-  ChecklistSource,
   CountryRule,
   Day,
-  DayType,
   Leg,
   Note,
   Stay,
   Stop,
-  StopType,
   Trip,
   TripState,
   TripStatus,
@@ -81,6 +76,12 @@ type TripStore = TripState & {
   updateStop: (id: string, patch: Partial<Stop>) => void;
   removeStop: (id: string) => void;
   reorderStops: (tripId: string, fromPos: number, toPos: number) => void;
+  insertStopAfterLeg: (
+    tripId: string,
+    dayId: string,
+    legId: string,
+    data: Omit<Stop, "id" | "tripId" | "position">
+  ) => string | null;
 
   // Legs
   addLeg: (data: Omit<Leg, "id">) => string;
@@ -91,6 +92,8 @@ type TripStore = TripState & {
   addDay: (data: Omit<Day, "id">) => string;
   updateDay: (id: string, patch: Partial<Day>) => void;
   removeDay: (id: string) => void;
+  splitDay: (dayId: string) => void;
+  mergeDayWithNext: (dayId: string) => void;
 
   // Stays
   createStay: (data: Omit<Stay, "id">) => string;
@@ -133,6 +136,34 @@ type TripStore = TripState & {
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
+
+function shiftIsoDate(iso: string, deltaDays: number) {
+  const date = new Date(`${iso}T12:00:00`);
+  date.setDate(date.getDate() + deltaDays);
+  return date.toISOString().slice(0, 10);
+}
+
+function getLegById(legs: Leg[], legId: string) {
+  return legs.find((leg) => leg.id === legId);
+}
+
+function deriveDayState(legs: Leg[], legIds: string[], fallbackOvernightStopId: string): Pick<Day, "legIds" | "overnightStopId" | "type"> {
+  const dayLegs = legIds.map((legId) => getLegById(legs, legId)).filter((leg): leg is Leg => Boolean(leg));
+
+  if (dayLegs.length === 0) {
+    return {
+      legIds: [],
+      overnightStopId: fallbackOvernightStopId,
+      type: "rest",
+    };
+  }
+
+  return {
+    legIds: dayLegs.map((leg) => leg.id),
+    overnightStopId: dayLegs[dayLegs.length - 1].toStopId,
+    type: dayLegs.length > 1 ? "mixed" : "driving",
+  };
+}
 
 export const useTripStore = create<TripStore>()(
   persist(
@@ -326,6 +357,92 @@ export const useTripStore = create<TripStore>()(
             ),
           };
         }),
+      insertStopAfterLeg: (tripId, dayId, legId, data) => {
+        const snapshot = get();
+        const leg = snapshot.legs.find((entry) => entry.id === legId && entry.tripId === tripId);
+        const day = snapshot.days.find((entry) => entry.id === dayId && entry.tripId === tripId);
+        const fromStop = leg ? snapshot.stops.find((stop) => stop.id === leg.fromStopId) : null;
+        const toStop = leg ? snapshot.stops.find((stop) => stop.id === leg.toStopId) : null;
+
+        if (!leg || !day || !fromStop || !toStop) return null;
+
+        const stopId = genId("stop");
+        const firstLegId = genId("leg");
+        const secondLegId = genId("leg");
+        const firstStats = estimateDriveStats(fromStop.coordinates, data.coordinates);
+        const secondStats = estimateDriveStats(data.coordinates, toStop.coordinates);
+
+        set((s) => {
+          const insertedPosition = toStop.position;
+          const nextStops = [
+            ...s.stops.map((stop) =>
+              stop.tripId === tripId && stop.position >= insertedPosition
+                ? { ...stop, position: stop.position + 1 }
+                : stop
+            ),
+            {
+              ...data,
+              id: stopId,
+              tripId,
+              position: insertedPosition,
+            },
+          ];
+
+          const remainingLegs = s.legs
+            .filter((entry) => entry.id !== legId)
+            .map((entry) =>
+              entry.tripId === tripId && entry.order > leg.order ? { ...entry, order: entry.order + 1 } : entry
+            );
+
+          const replacementLegs: Leg[] = [
+            {
+              id: firstLegId,
+              tripId,
+              fromStopId: fromStop.id,
+              toStopId: stopId,
+              order: leg.order,
+              distanceKm: firstStats.distanceKm,
+              driveHours: firstStats.driveHours,
+              countriesCrossed: Array.from(new Set([fromStop.country, data.country].filter(Boolean))),
+              tollNotes: leg.tollNotes,
+              riskNotes: leg.riskNotes,
+            },
+            {
+              id: secondLegId,
+              tripId,
+              fromStopId: stopId,
+              toStopId: toStop.id,
+              order: leg.order + 1,
+              distanceKm: secondStats.distanceKm,
+              driveHours: secondStats.driveHours,
+              countriesCrossed: Array.from(new Set([data.country, toStop.country].filter(Boolean))),
+              tollNotes: leg.tollNotes,
+              riskNotes: leg.riskNotes,
+            },
+          ];
+
+          const nextLegs = [...remainingLegs, ...replacementLegs].sort((a, b) => a.order - b.order);
+
+          return {
+            stops: nextStops,
+            legs: nextLegs,
+            days: s.days.map((entry) => {
+              if (entry.id !== dayId) return entry;
+
+              const nextLegIds = entry.legIds.flatMap((entryLegId) =>
+                entryLegId === legId ? [firstLegId, secondLegId] : [entryLegId]
+              );
+
+              return {
+                ...entry,
+                ...deriveDayState(nextLegs, nextLegIds, entry.overnightStopId),
+              };
+            }),
+          };
+        });
+
+        return stopId;
+      },
 
       // ── Legs ─────────────────────────────────────────────────────────────────
       addLeg: (data) => {
@@ -354,6 +471,108 @@ export const useTripStore = create<TripStore>()(
           days: s.days.filter((x) => x.id !== id),
           checklistItems: s.checklistItems.filter((x) => x.scope !== `day:${id}`),
         })),
+      splitDay: (dayId) =>
+        set((s) => {
+          const targetDay = s.days.find((day) => day.id === dayId);
+          if (!targetDay || targetDay.legIds.length === 0) return {};
+
+          const tripDays = s.days
+            .filter((day) => day.tripId === targetDay.tripId)
+            .sort((a, b) => a.dayNumber - b.dayNumber);
+          const dayIndex = tripDays.findIndex((day) => day.id === dayId);
+          const movedLegId = targetDay.legIds[targetDay.legIds.length - 1];
+          const movedLeg = getLegById(s.legs, movedLegId);
+
+          if (!movedLeg) return {};
+
+          const remainingLegIds = targetDay.legIds.slice(0, -1);
+          const currentDayState = deriveDayState(s.legs, remainingLegIds, movedLeg.fromStopId);
+          const newDayId = genId("day");
+          const newDay: Day = {
+            ...targetDay,
+            id: newDayId,
+            dayNumber: targetDay.dayNumber + 1,
+            date: shiftIsoDate(targetDay.date, 1),
+            notes: "",
+            ...deriveDayState(s.legs, [movedLegId], movedLeg.toStopId),
+          };
+
+          const updatedTripDays = tripDays.flatMap((day, index) => {
+            if (index === dayIndex) {
+              return [
+                {
+                  ...day,
+                  ...currentDayState,
+                },
+                newDay,
+              ];
+            }
+
+            if (index > dayIndex) {
+              return [
+                {
+                  ...day,
+                  dayNumber: day.dayNumber + 1,
+                  date: shiftIsoDate(day.date, 1),
+                },
+              ];
+            }
+
+            return [day];
+          });
+
+          return {
+            days: [...s.days.filter((day) => day.tripId !== targetDay.tripId), ...updatedTripDays],
+            expandedDayIds: Array.from(new Set([...s.expandedDayIds, dayId, newDayId])),
+          };
+        }),
+      mergeDayWithNext: (dayId) =>
+        set((s) => {
+          const targetDay = s.days.find((day) => day.id === dayId);
+          if (!targetDay) return {};
+
+          const tripDays = s.days
+            .filter((day) => day.tripId === targetDay.tripId)
+            .sort((a, b) => a.dayNumber - b.dayNumber);
+          const dayIndex = tripDays.findIndex((day) => day.id === dayId);
+          const nextDay = tripDays[dayIndex + 1];
+
+          if (!nextDay) return {};
+
+          const mergedLegIds = [...targetDay.legIds, ...nextDay.legIds];
+          const mergedDayState = deriveDayState(s.legs, mergedLegIds, nextDay.overnightStopId);
+          const mergedNotes = [targetDay.notes, nextDay.notes].filter(Boolean).join("\n\n");
+
+          const updatedTripDays = tripDays
+            .filter((day) => day.id !== nextDay.id)
+            .map((day) => {
+              if (day.id === targetDay.id) {
+                return {
+                  ...day,
+                  ...mergedDayState,
+                  notes: mergedNotes,
+                };
+              }
+
+              if (day.dayNumber > nextDay.dayNumber) {
+                return {
+                  ...day,
+                  dayNumber: day.dayNumber - 1,
+                  date: shiftIsoDate(day.date, -1),
+                };
+              }
+
+              return day;
+            });
+
+          return {
+            days: [...s.days.filter((day) => day.tripId !== targetDay.tripId), ...updatedTripDays],
+            checklistItems: s.checklistItems.map((item) =>
+              item.scope === `day:${nextDay.id}` ? { ...item, scope: `day:${targetDay.id}` as ChecklistScope } : item
+            ),
+            expandedDayIds: s.expandedDayIds.filter((id) => id !== nextDay.id),
+          };
+        }),
 
       // ── Stays ─────────────────────────────────────────────────────────────────
       createStay: (data) => {

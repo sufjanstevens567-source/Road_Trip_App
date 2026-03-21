@@ -3,26 +3,30 @@
 import { useEffect } from "react";
 import { divIcon, latLngBounds, type DivIcon } from "leaflet";
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
-import type { Stop, Leg } from "@/types/trip";
+import type { Leg, Stop } from "@/types/trip";
 
 interface SimpleRouteMapProps {
   stops: Stop[];
   legs: Leg[];
+  selectedStopId?: string | null;
+  onSelectStop?: (stopId: string) => void;
 }
 
-function buildIcon(stop: Stop): DivIcon {
+function buildIcon(stop: Stop, index: number, isSelected: boolean): DivIcon {
   const colors: Record<Stop["type"], string> = {
-    origin: "#1e40af",
-    waypoint: "#7c3aed",
-    overnight: "#059669",
-    destination: "#dc2626",
+    origin: "#2851a3",
+    waypoint: "#9b6c34",
+    overnight: "#3f7e58",
+    destination: "#8f3b37",
   };
+
+  const ring = isSelected ? "0 0 0 8px rgba(15,23,42,0.14)" : "0 14px 30px rgba(15,23,42,0.18)";
 
   return divIcon({
     className: "bg-transparent border-0",
-    html: `<div style="display:flex;height:40px;width:40px;align-items:center;justify-content:center;border-radius:999px;border:2px solid white;box-shadow:0 10px 25px rgba(0,0,0,0.2);background:${colors[stop.type]};color:white;font-size:12px;font-weight:600;">${stop.name.charAt(0)}</div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:${isSelected ? 46 : 40}px;height:${isSelected ? 46 : 40}px;border-radius:999px;border:${isSelected ? 3 : 2}px solid rgba(255,255,255,0.92);box-shadow:${ring};background:${colors[stop.type]};color:white;font-size:12px;font-weight:700;letter-spacing:0.03em;transform:translateZ(0);">${index + 1}</div>`,
+    iconSize: [isSelected ? 46 : 40, isSelected ? 46 : 40],
+    iconAnchor: [isSelected ? 23 : 20, isSelected ? 23 : 20],
   });
 }
 
@@ -31,50 +35,63 @@ function FitBounds({ stops }: { stops: Stop[] }) {
 
   useEffect(() => {
     if (stops.length === 0) return;
-    const bounds = latLngBounds(
-      stops.map((stop) => [stop.coordinates[0], stop.coordinates[1]])
-    );
-    map.fitBounds(bounds.pad(0.15));
+    const bounds = latLngBounds(stops.map((stop) => [stop.coordinates[0], stop.coordinates[1]]));
+    map.fitBounds(bounds.pad(0.16), { animate: false });
   }, [map, stops]);
 
   return null;
 }
 
-export function SimpleRouteMap({ stops, legs }: SimpleRouteMapProps) {
-  // Build polyline from stops in order
-  const positions = stops.map((s) => [s.coordinates[0], s.coordinates[1]] as [number, number]);
+export function SimpleRouteMap({ stops, legs, selectedStopId, onSelectStop }: SimpleRouteMapProps) {
+  const positions = stops.map((stop) => [stop.coordinates[0], stop.coordinates[1]] as [number, number]);
 
   return (
-    <MapContainer
-      className="h-96 w-full"
-      center={[48, 15]}
-      zoom={6}
-      scrollWheelZoom={false}
-    >
+    <MapContainer className="h-[72vh] w-full" center={[48, 15]} zoom={6} scrollWheelZoom={false}>
       <FitBounds stops={stops} />
       <TileLayer
-        attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+        attribution="&copy; OpenStreetMap contributors &copy; CARTO"
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
+
       {positions.length >= 2 && (
-        <Polyline
-          positions={positions}
-          pathOptions={{
-            color: "#3b82f6",
-            weight: 3,
-            opacity: 0.7,
-            lineCap: "round",
-            lineJoin: "round",
-          }}
-        />
+        <>
+          <Polyline
+            positions={positions}
+            pathOptions={{
+              color: "#d0b58f",
+              weight: 9,
+              opacity: 0.4,
+              lineCap: "round",
+              lineJoin: "round",
+            }}
+          />
+          <Polyline
+            positions={positions}
+            pathOptions={{
+              color: "#1f2937",
+              weight: 4,
+              opacity: 0.9,
+              lineCap: "round",
+              lineJoin: "round",
+              dashArray: legs.length > 0 ? undefined : "10 8",
+            }}
+          />
+        </>
       )}
-      {stops.map((stop) => (
-        <Marker
-          key={stop.id}
-          position={[stop.coordinates[0], stop.coordinates[1]]}
-          icon={buildIcon(stop)}
-        />
-      ))}
+
+      {stops.map((stop, index) => {
+        const isSelected = stop.id === selectedStopId;
+        return (
+          <Marker
+            key={stop.id}
+            position={[stop.coordinates[0], stop.coordinates[1]]}
+            icon={buildIcon(stop, index, isSelected)}
+            eventHandlers={{
+              click: () => onSelectStop?.(stop.id),
+            }}
+          />
+        );
+      })}
     </MapContainer>
   );
 }
