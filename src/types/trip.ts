@@ -215,6 +215,7 @@ export interface TripState {
   activeTripView: TripView;
   selectedDayId: string | null;
   executionDayId: string | null;
+  completedLegIds: string[];
   expandedDayIds: string[];
   routeLayoutPreference: RouteLayoutPreference;
   displayScale: DisplayScale;

@@ -10,21 +10,30 @@ interface SimpleRouteMapProps {
   legs: Leg[];
   selectedStopId?: string | null;
   onSelectStop?: (stopId: string) => void;
+  stopStateById?: Record<string, "past" | "current" | "future">;
 }
 
-function buildIcon(stop: Stop, index: number, isSelected: boolean): DivIcon {
-  const colors: Record<Stop["type"], string> = {
+function buildIcon(
+  stop: Stop,
+  index: number,
+  isSelected: boolean,
+  state: "past" | "current" | "future" | undefined
+): DivIcon {
+  const fallbackColors: Record<Stop["type"], string> = {
     origin: "#2851a3",
     waypoint: "#9b6c34",
     overnight: "#3f7e58",
     destination: "#8f3b37",
   };
 
+  const stateColor =
+    state === "past" ? "#3f7e58" : state === "current" ? "#2851a3" : state === "future" ? "#94a3b8" : fallbackColors[stop.type];
+
   const ring = isSelected ? "0 0 0 8px rgba(15,23,42,0.14)" : "0 14px 30px rgba(15,23,42,0.18)";
 
   return divIcon({
     className: "bg-transparent border-0",
-    html: `<div style="display:flex;align-items:center;justify-content:center;width:${isSelected ? 46 : 40}px;height:${isSelected ? 46 : 40}px;border-radius:999px;border:${isSelected ? 3 : 2}px solid rgba(255,255,255,0.92);box-shadow:${ring};background:${colors[stop.type]};color:white;font-size:12px;font-weight:700;letter-spacing:0.03em;transform:translateZ(0);">${index + 1}</div>`,
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:${isSelected ? 46 : 40}px;height:${isSelected ? 46 : 40}px;border-radius:999px;border:${isSelected ? 3 : 2}px solid rgba(255,255,255,0.92);box-shadow:${ring};background:${stateColor};color:white;font-size:12px;font-weight:700;letter-spacing:0.03em;transform:translateZ(0);">${index + 1}</div>`,
     iconSize: [isSelected ? 46 : 40, isSelected ? 46 : 40],
     iconAnchor: [isSelected ? 23 : 20, isSelected ? 23 : 20],
   });
@@ -42,7 +51,7 @@ function FitBounds({ stops }: { stops: Stop[] }) {
   return null;
 }
 
-export function SimpleRouteMap({ stops, legs, selectedStopId, onSelectStop }: SimpleRouteMapProps) {
+export function SimpleRouteMap({ stops, legs, selectedStopId, onSelectStop, stopStateById }: SimpleRouteMapProps) {
   const positions = stops.map((stop) => [stop.coordinates[0], stop.coordinates[1]] as [number, number]);
 
   return (
@@ -81,11 +90,12 @@ export function SimpleRouteMap({ stops, legs, selectedStopId, onSelectStop }: Si
 
       {stops.map((stop, index) => {
         const isSelected = stop.id === selectedStopId;
+        const stopState = stopStateById?.[stop.id];
         return (
           <Marker
             key={stop.id}
             position={[stop.coordinates[0], stop.coordinates[1]]}
-            icon={buildIcon(stop, index, isSelected)}
+            icon={buildIcon(stop, index, isSelected, stopState)}
             eventHandlers={{
               click: () => onSelectStop?.(stop.id),
             }}

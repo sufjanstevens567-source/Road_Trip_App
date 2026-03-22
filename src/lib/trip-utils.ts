@@ -16,6 +16,12 @@ import type {
   TripState,
 } from "@/types/trip";
 
+export interface BorderCrossing {
+  fromCountry: string;
+  toCountry: string;
+  rule: CountryRule | null;
+}
+
 // ─── Selectors ────────────────────────────────────────────────────────────────
 
 export function getActiveTrip(state: TripState): Trip | null {
@@ -346,12 +352,51 @@ export function getDayForDate(days: Day[], isoDate: string): Day | null {
   return days.find((d) => d.date === isoDate) ?? null;
 }
 
-export function getCurrentExecutionDay(days: Day[]): Day {
+export function getCurrentExecutionDay(days: Day[], executionDayId?: string | null): Day {
+  if (executionDayId) {
+    const matchedDay = days.find((day) => day.id === executionDayId);
+    if (matchedDay) return matchedDay;
+  }
+
   const today = todayISO();
   return (
     getDayForDate(days, today) ??
     days[days.length - 1] ??
     days[0]
+  );
+}
+
+export function getNextExecutionDay(days: Day[], currentDayId: string): Day | null {
+  const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
+  const index = sortedDays.findIndex((day) => day.id === currentDayId);
+  if (index === -1 || index >= sortedDays.length - 1) return null;
+  return sortedDays[index + 1];
+}
+
+export function getBorderCrossings(day: Day, legs: Leg[], countryRules: CountryRule[]): BorderCrossing[] {
+  const dayLegs = getLegsForDay(legs, day);
+  const transitions: BorderCrossing[] = [];
+  let previousCountry: string | null = null;
+
+  for (const leg of dayLegs) {
+    for (const country of leg.countriesCrossed) {
+      if (!country) continue;
+      if (previousCountry && previousCountry !== country) {
+        transitions.push({
+          fromCountry: previousCountry,
+          toCountry: country,
+          rule: countryRules.find((rule) => rule.country === country) ?? null,
+        });
+      }
+      previousCountry = country;
+    }
+  }
+
+  return transitions.filter(
+    (transition, index, all) =>
+      all.findIndex(
+        (entry) => entry.fromCountry === transition.fromCountry && entry.toCountry === transition.toCountry
+      ) === index
   );
 }
 

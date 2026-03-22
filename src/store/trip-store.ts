@@ -47,6 +47,7 @@ function buildInitialState(): TripState {
     activeTripView: "today",
     selectedDayId: null,
     executionDayId: null,
+    completedLegIds: [],
     expandedDayIds: [],
     routeLayoutPreference: "balanced",
     displayScale: "comfortable",
@@ -64,6 +65,9 @@ type TripStore = TripState & {
   setActiveTripId: (id: string | null) => void;
   setSelectedDayId: (id: string | null) => void;
   setExecutionDayId: (id: string | null) => void;
+  toggleCompletedLeg: (legId: string) => void;
+  clearCompletedLegsForDay: (dayId: string) => void;
+  advanceExecutionDay: (tripId: string) => void;
   toggleExpandedDay: (id: string) => void;
   expandAllDays: (tripId: string) => void;
   collapseAllDays: () => void;
@@ -183,6 +187,39 @@ export const useTripStore = create<TripStore>()(
       setActiveTripId: (activeTripId) => set({ activeTripId }),
       setSelectedDayId: (selectedDayId) => set({ selectedDayId }),
       setExecutionDayId: (executionDayId) => set({ executionDayId }),
+      toggleCompletedLeg: (legId) =>
+        set((s) => ({
+          completedLegIds: s.completedLegIds.includes(legId)
+            ? s.completedLegIds.filter((id) => id !== legId)
+            : [...s.completedLegIds, legId],
+        })),
+      clearCompletedLegsForDay: (dayId) =>
+        set((s) => {
+          const day = s.days.find((entry) => entry.id === dayId);
+          if (!day) return {};
+
+          return {
+            completedLegIds: s.completedLegIds.filter((legId) => !day.legIds.includes(legId)),
+          };
+        }),
+      advanceExecutionDay: (tripId) =>
+        set((s) => {
+          const tripDays = s.days
+            .filter((day) => day.tripId === tripId)
+            .sort((a, b) => a.dayNumber - b.dayNumber);
+          if (tripDays.length === 0) return {};
+
+          const currentDay =
+            tripDays.find((day) => day.id === s.executionDayId) ??
+            tripDays.find((day) => day.date === new Date().toISOString().slice(0, 10)) ??
+            tripDays[0];
+          const currentIndex = tripDays.findIndex((day) => day.id === currentDay.id);
+          const nextDay = tripDays[Math.min(currentIndex + 1, tripDays.length - 1)];
+
+          return {
+            executionDayId: nextDay.id,
+          };
+        }),
       toggleExpandedDay: (id) =>
         set((s) => ({
           expandedDayIds: s.expandedDayIds.includes(id)
@@ -220,6 +257,7 @@ export const useTripStore = create<TripStore>()(
           budgetLines: s.budgetLines.filter((x) => x.tripId !== id),
           notes: s.notes.filter((x) => x.tripId !== id),
           attachments: s.attachments.filter((x) => x.tripId !== id),
+          completedLegIds: s.completedLegIds.filter((legId) => !s.legs.some((leg) => leg.id === legId && leg.tripId === id)),
           activeTripId: s.activeTripId === id ? null : s.activeTripId,
         })),
       duplicateTrip: (sourceId) => {
@@ -464,6 +502,7 @@ export const useTripStore = create<TripStore>()(
         set((s) => ({
           legs: s.legs.filter((x) => x.id !== id),
           days: s.days.map((d) => ({ ...d, legIds: d.legIds.filter((lid) => lid !== id) })),
+          completedLegIds: s.completedLegIds.filter((legId) => legId !== id),
         })),
 
       // ── Days ─────────────────────────────────────────────────────────────────
@@ -683,7 +722,7 @@ export const useTripStore = create<TripStore>()(
     }),
     {
       name: "road-trip-planner-v3",
-      version: 4,
+      version: 5,
       migrate: (persisted) => {
         // If persisted state is unreadable or from old schema, reset to seed
         if (
@@ -712,6 +751,8 @@ export const useTripStore = create<TripStore>()(
           nextState.displayScale === "large"
             ? nextState.displayScale
             : "comfortable";
+
+        nextState.completedLegIds = Array.isArray(nextState.completedLegIds) ? nextState.completedLegIds : [];
 
         return nextState;
       },
