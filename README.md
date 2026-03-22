@@ -30,9 +30,16 @@ Planning Mode is the primary desktop workspace. It includes:
 
 Trip Mode is the lighter companion view for the road. It focuses on:
 
-- **Today**: today's drive, tonight's stay, checklist context, and tomorrow's preview.
-- **Stays**: accommodation details in a simpler travel-friendly layout.
-- **Progress**: overall trip progress and route context.
+- **Today**: a status-aware daily companion with next-leg navigation, tonight's stay details, border-crossing reminders, large-tap checklist actions, pinned notes, and tomorrow's preview.
+- **Stays**: property-first accommodation cards with arrival actions such as navigate, booking access, address handoff, and confirmation-code copy.
+- **Progress**: segmented trip progress, distance done vs remaining, route-state map markers, and a stop timeline showing visited, current, and upcoming stops.
+
+Trip Mode also now supports:
+
+- navigation deep-links to the next stop and tonight's stay
+- manual day advancement when real travel dates drift from the plan
+- per-leg completion tracking for multi-leg driving days
+- contextual border-crossing awareness using the trip's country-requirement data
 
 ## AI help workflow
 
@@ -110,7 +117,7 @@ Current intentional constraints:
 - no turn-by-turn navigation
 - no native mobile app
 
-The app links out to external tools where that is more useful than rebuilding them, such as Google Maps for place handoff.
+The app links out to external tools where that is more useful than rebuilding them, such as Google Maps / Apple Maps for navigation handoff.
 
 ## Core data model
 
@@ -212,7 +219,7 @@ src/
 
 Good future directions include:
 
-- better mobile adaptation
+- deeper mobile refinement and real-device QA
 - richer AI export/download flows
 - more nuanced travel-risk modeling
 - improved trip comparison and route alternatives
