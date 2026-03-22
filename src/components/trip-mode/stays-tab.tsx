@@ -63,7 +63,7 @@ export function StaysTab() {
                       {stay.checkIn} → {stay.checkOut}
                     </p>
                   </div>
-                  <StatusPill label={stay.status} tone={getStayTone(stay.status)} />
+                  <StatusPill label={presentStayStatus(stay.status)} tone={getStayTone(stay.status)} />
                 </div>
 
                 {isExpanded && (
@@ -134,4 +134,10 @@ export function StaysTab() {
       </div>
     </div>
   );
+}
+
+function presentStayStatus(status: Stay["status"]) {
+  if (status === "booked") return "Booked";
+  if (status === "shortlisted") return "Shortlisted";
+  return "Researching";
 }

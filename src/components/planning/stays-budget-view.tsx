@@ -9,6 +9,7 @@ import {
   getActiveTrip,
   getBudgetSummary,
   getTripBudgetLines,
+  getTripStops,
   getTripStays,
 } from "@/lib/trip-utils";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, SectionLead, StatusPill, bookingTone } from "@/components/shared/ui-helpers";
-import type { BudgetCategory, BudgetLine, Stay } from "@/types/trip";
+import type { BudgetCategory, BudgetLine, Stay, Stop } from "@/types/trip";
 
 export function StaysBudgetView() {
   const state = useTripStore();
@@ -25,6 +26,7 @@ export function StaysBudgetView() {
   const tripId = activeTrip?.id ?? "";
 
   const stays = getTripStays(state, tripId);
+  const stops = getTripStops(state, tripId);
   const budgetLines = getTripBudgetLines(state, tripId);
   const summary = getBudgetSummary(stays, budgetLines);
 
@@ -55,14 +57,14 @@ export function StaysBudgetView() {
         <SectionLead
           eyebrow="Accommodations"
           title="Stays"
-          description={`${stays.length} stay${stays.length !== 1 ? "s" : ""} arranged as scan-first booking cards.`}
+          description="Your stays, organized for quick scanning and editing."
         />
 
         <Card className="border-slate-200 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
           <div className="grid gap-4 md:grid-cols-3">
             <SummaryHero label="Booked" value={`${bookedCount}`} caption={`${stays.length} total stays`} />
-            <SummaryHero label="Open" value={`${researchingCount}`} caption="still being researched" />
-            <SummaryHero label="Parking" value={`${parkingIncludedCount}`} caption="already confirmed" />
+            <SummaryHero label="Still open" value={`${researchingCount}`} caption="not booked yet" />
+            <SummaryHero label="Parking confirmed" value={`${parkingIncludedCount}`} caption="already sorted" />
           </div>
         </Card>
 
@@ -70,13 +72,14 @@ export function StaysBudgetView() {
           {stays.length === 0 ? (
             <EmptyState
               title="No stays added yet"
-              description="Once a stop becomes an overnight anchor, its stay card will show up here for quick scanning and editing."
+              description="Once a stop becomes an overnight stop, its stay will appear here."
             />
           ) : (
             stays.map((stay) => (
               <StayCard
                 key={stay.id}
                 stay={stay}
+                stopName={getStayStopName(stay, stops)}
                 currency={activeTrip.currency}
                 onSave={(patch) => updateStay(stay.id, patch)}
                 onRemove={() => removeStay(stay.id)}
@@ -87,7 +90,7 @@ export function StaysBudgetView() {
       </div>
 
       <div className="sticky top-8 h-fit space-y-4">
-        <SectionLead eyebrow="Costs" title="Budget" />
+        <SectionLead eyebrow="Costs" title="Costs" />
 
         <Card className="border-slate-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
           <div className="border-b border-slate-200 pb-4">
@@ -170,11 +173,13 @@ export function StaysBudgetView() {
 
 function StayCard({
   stay,
+  stopName,
   currency,
   onSave,
   onRemove,
 }: {
   stay: Stay;
+  stopName?: string;
   currency: string;
   onSave: (patch: Partial<Stay>) => void;
   onRemove: () => void;
@@ -212,7 +217,7 @@ function StayCard({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-xl font-semibold tracking-tight text-slate-950">{stay.propertyName || "Unnamed stay"}</h3>
+            <h3 className="truncate text-xl font-semibold tracking-tight text-slate-950">{stay.propertyName || (stopName ? `${stopName} stay` : "Unnamed stay")}</h3>
             <StatusPill label={presentStayStatus(stay.status)} tone={bookingTone(stay.status)} />
           </div>
           <p className="mt-1 text-sm text-slate-500">{formatStayDates(stay.checkIn, stay.checkOut)}</p>
@@ -286,7 +291,7 @@ function StayCard({
               <Field label="Confirmation code">
                 <Input value={draft.confirmationCode} onChange={(e) => setDraft({ ...draft, confirmationCode: e.target.value })} />
               </Field>
-              <Field label="Booking URL">
+              <Field label="Booking link">
                 <Input value={draft.bookingUrl} onChange={(e) => setDraft({ ...draft, bookingUrl: e.target.value })} />
               </Field>
             </div>
@@ -401,7 +406,7 @@ function BudgetLineRow({
       }}
       className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm transition-colors hover:border-slate-300 hover:bg-white"
     >
-      <span className="text-left text-slate-600">{line.label || "Unlabelled line"}</span>
+      <span className="text-left text-slate-600">{line.label || "Untitled item"}</span>
       <div className="flex items-center gap-2">
         <span className="font-medium text-slate-900">{formatCurrency(line.planned, currency)}</span>
         <Button
@@ -476,4 +481,8 @@ function presentStayStatus(status: Stay["status"]) {
   if (status === "booked") return "Booked";
   if (status === "shortlisted") return "Shortlisted";
   return "Researching";
+}
+
+function getStayStopName(stay: Stay, stops: Stop[]) {
+  return stops.find((stop) => stop.id === stay.stopId)?.name;
 }

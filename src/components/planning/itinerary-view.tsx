@@ -89,7 +89,7 @@ export function ItineraryView() {
         <SectionLead
           eyebrow="Plan"
           title="Itinerary"
-          description={`${days.length} day${days.length !== 1 ? "s" : ""} arranged as readable route chapters.`}
+          description="Your trip, day by day."
         />
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => expandAllDays(activeTrip.id)}>
@@ -102,11 +102,11 @@ export function ItineraryView() {
       </div>
 
       <Card className="border-slate-200 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-        <div className="grid gap-4 md:grid-cols-4">
-          <MetricTile label="Total days" value={`${days.length}`} />
-          <MetricTile label="Drive days" value={`${driveDayCount}`} />
-          <MetricTile label="Rest days" value={`${restDayCount}`} />
-          <MetricTile label="Total hours" value={formatDriveHours(totalDriveHours)} />
+        <div className="grid gap-4 md:grid-cols-4 md:gap-0">
+          <SummaryBandMetric label="Total days" value={`${days.length}`} />
+          <SummaryBandMetric label="Drive days" value={`${driveDayCount}`} />
+          <SummaryBandMetric label="Rest days" value={`${restDayCount}`} />
+          <SummaryBandMetric label="Total drive hours" value={formatDriveHours(totalDriveHours)} />
         </div>
       </Card>
 
@@ -114,12 +114,13 @@ export function ItineraryView() {
         {days.length === 0 ? (
           <EmptyState
             title="No itinerary days yet"
-            description="Add route legs and overnight anchors, then the day-by-day trip rhythm will assemble here."
+            description="Add route stops and overnight stays, then your itinerary will appear here."
           />
         ) : (
           days.map((day, index) => {
             const dayLegs = getLegsForDay(legs, day);
             const dayStay = stays.find((stay) => stay.stopId === day.overnightStopId);
+            const overnightStop = stops.find((stop) => stop.id === day.overnightStopId);
             const warnings = getDayWarnings(day, legs, rules, checklistItems, stays);
             const dayChecklist = checklistItems.filter((item) => item.scope === `day:${day.id}`);
             const checkedCount = dayChecklist.filter((item) => item.done).length;
@@ -133,7 +134,7 @@ export function ItineraryView() {
             return (
               <Card
                 key={day.id}
-                className={`overflow-hidden border border-slate-200 bg-white ${accentClass} ${day.type === "rest" ? "bg-slate-50/75" : ""}`}
+                className={`overflow-visible border border-slate-200 bg-white ${accentClass} ${day.type === "rest" ? "bg-slate-50/75" : ""}`}
               >
                 <div className="flex items-start gap-3 p-4 transition-colors hover:bg-slate-50/70">
                   <button type="button" className="flex-1 text-left" onClick={() => toggleExpandedDay(day.id)}>
@@ -157,7 +158,7 @@ export function ItineraryView() {
                           <p className="text-2xl font-semibold tracking-tight text-slate-950">
                             {dayLegs.length > 0 ? formatDriveHours(dayStats.hours) : "No drive"}
                           </p>
-                          <p className="text-xs text-slate-500">{dayLegs.length > 0 ? formatDistance(dayStats.km) : "Rest rhythm"}</p>
+                          <p className="text-xs text-slate-500">{dayLegs.length > 0 ? formatDistance(dayStats.km) : "Rest day"}</p>
                         </div>
                         <div className="min-w-[6.5rem] text-right">
                           <div className="flex items-center justify-end gap-2 text-xs font-medium text-slate-700">
@@ -177,7 +178,7 @@ export function ItineraryView() {
                       <MoreHorizontal className="size-4" />
                     </Button>
                     {menuDayId === day.id && (
-                      <div className="absolute right-0 top-8 z-20 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-[0_18px_50px_rgba(15,23,42,0.15)]">
+                      <div className="absolute right-0 top-full z-30 mt-2 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-[0_18px_50px_rgba(15,23,42,0.15)]">
                         {dayLegs.length > 0 && (
                           <button
                             type="button"
@@ -234,10 +235,10 @@ export function ItineraryView() {
                               <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Stay</p>
                                 <p className="mt-1 text-lg font-semibold tracking-tight text-slate-950">
-                                  {dayStay?.propertyName || "No stay chosen yet"}
+                                  {dayStay ? getStayTitle(dayStay, overnightStop) : "No stay chosen yet"}
                                 </p>
                                 <p className="mt-1 text-sm text-slate-500">
-                                  {dayStay ? `${dayStay.checkIn} -> ${dayStay.checkOut}` : "Choose a place to anchor this day."}
+                                  {dayStay ? formatStayWindow(dayStay.checkIn, dayStay.checkOut) : "Add a stay for this day."}
                                 </p>
                               </div>
                               <StatusPill label={dayStay?.status ?? "rest"} tone={dayStay ? bookingTone(dayStay.status) : "muted"} />
@@ -245,9 +246,13 @@ export function ItineraryView() {
 
                             {dayStay ? (
                               <div className="mt-4 space-y-3">
-                                <StayDetail label="Confirmation" value={dayStay.confirmationCode || "Not added yet"} />
-                                <StayDetail label="Parking" value={dayStay.parkingIncluded ? "Included" : dayStay.parkingNotes || "Check parking before arrival"} />
-                                <StayDetail label="Cancellation" value={dayStay.cancellationPolicy || "No policy logged yet"} />
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <StayDetail label="Parking" value={dayStay.parkingIncluded ? "Included" : "Check before arrival"} />
+                                  <StayDetail label="Booking status" value={presentStayStatus(dayStay.status)} />
+                                </div>
+                                <p className="text-sm text-slate-500">
+                                  Manage confirmation details, booking links, and stay logistics in the stays view.
+                                </p>
                                 <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveView("stays")}>
                                   Manage in stays
                                 </Button>
@@ -255,8 +260,8 @@ export function ItineraryView() {
                             ) : (
                               <div className="mt-4">
                                 <EmptyState
-                                  title="No overnight stay attached"
-                                  description="Pick or book a stay to anchor this day, then the details will appear here instead of keeping the day open."
+                                  title="No stay added yet"
+                                  description="Add a stay for this day and the booking details will appear here."
                                 />
                               </div>
                             )}
@@ -297,7 +302,7 @@ export function ItineraryView() {
                               <div className="mt-4">
                                 <EmptyState
                                   title="No checklist items yet"
-                                  description="Use this space for day-specific tasks like parking access, border prep, or local logistics."
+                                  description="Add day-specific tasks like parking, border prep, or local logistics here."
                                 />
                               </div>
                             )}
@@ -319,7 +324,7 @@ export function ItineraryView() {
                                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                                   <MetricTile label="Drive time" value={formatDriveHours(dayStats.hours)} />
                                   <MetricTile label="Distance" value={formatDistance(dayStats.km)} />
-                                  <MetricTile label="Legs" value={`${dayLegs.length}`} />
+                                  <MetricTile label="Drive segments" value={`${dayLegs.length}`} />
                                 </div>
                                 <div className="mt-4 space-y-2">
                                   {dayLegs.map((leg) => {
@@ -372,14 +377,14 @@ export function ItineraryView() {
                               <div className="mt-4">
                                 <EmptyState
                                   title="No driving planned"
-                                  description="Use this as a genuine pause in the route rhythm, or reshape nearby days if the pacing needs to change."
+                                  description="Leave this as a rest day, or adjust nearby days if the pacing needs work."
                                 />
                               </div>
                             )}
 
                             {warnings.length > 0 && (
                               <div className="mt-4 space-y-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Watchouts</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Warnings</p>
                                 {warnings.map((warning) => (
                                   <WarningRow key={warning.id} warning={warning} />
                                 ))}
@@ -392,7 +397,7 @@ export function ItineraryView() {
                               <NotebookText className="size-4 text-slate-400" />
                               <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Notes</p>
-                                <p className="mt-1 text-sm text-slate-600">Keep the important context close to the day itself.</p>
+                                <p className="mt-1 text-sm text-slate-600">Keep day-specific notes here.</p>
                               </div>
                             </div>
                             <Textarea
@@ -499,7 +504,7 @@ function buildDaySummary(day: Day, dayLegs: Leg[], stops: Stop[]) {
 
   return {
     routeLabel: `${origin} -> ${destination}`,
-    caption: dayLegs.length > 1 ? `${dayLegs.length} routed legs stitched into one travel day.` : "A single transfer day with one clear anchor.",
+    caption: dayLegs.length > 1 ? `${dayLegs.length} drive segments combined into one travel day.` : "A single transfer day with one clear stop.",
     dayType: day.type === "mixed" ? "Mixed day" : "Drive day",
     typeLabel: day.type === "mixed" ? "Drive plus local time" : "Transfer rhythm",
   };
@@ -507,7 +512,7 @@ function buildDaySummary(day: Day, dayLegs: Leg[], stops: Stop[]) {
 
 function getDayStatus(day: Day, stay: Stay | undefined, warnings: DayWarning[]) {
   if (day.type === "rest") return { tone: "muted" as const, label: "Rest day" };
-  if (warnings.some((warning) => warning.severity === "critical")) return { tone: "danger" as const, label: "Blocker" };
+  if (warnings.some((warning) => warning.severity === "critical")) return { tone: "danger" as const, label: "Needs attention" };
   if (stay?.status === "booked" && warnings.length === 0) return { tone: "success" as const, label: "Stay booked" };
   return { tone: "warning" as const, label: stay ? "Needs attention" : "Stay open" };
 }
@@ -524,6 +529,15 @@ function MetricTile({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-3">
       <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function SummaryBandMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="px-4 py-3 md:border-r md:border-slate-200 last:md:border-r-0">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
+      <p className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
     </div>
   );
 }
@@ -549,4 +563,20 @@ function StayDetail({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-sm text-slate-900">{value}</p>
     </div>
   );
+}
+
+function getStayTitle(stay: Stay, overnightStop?: Stop) {
+  return stay.propertyName || (overnightStop ? `${overnightStop.name} stay` : "Stay chosen");
+}
+
+function formatStayWindow(checkIn: string, checkOut: string) {
+  if (!checkIn && !checkOut) return "Dates not set yet";
+  if (!checkIn || !checkOut) return [checkIn || "TBD", checkOut || "TBD"].join(" -> ");
+  return `${formatDate(checkIn)} -> ${formatDate(checkOut)}`;
+}
+
+function presentStayStatus(status: Stay["status"]) {
+  if (status === "booked") return "Booked";
+  if (status === "shortlisted") return "Shortlisted";
+  return "Researching";
 }

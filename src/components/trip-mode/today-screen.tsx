@@ -56,7 +56,7 @@ export function TodayScreen() {
       {/* Where I am */}
       <Card className="p-6 bg-gradient-to-br from-sky-50 to-slate-50 border-sky-200">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Where I am
+          Today
         </p>
         <h2 className="mt-2 text-2xl font-bold text-foreground">
           Day {today.dayNumber}
@@ -93,7 +93,7 @@ export function TodayScreen() {
           </div>
           <div className="border-t pt-3 text-sm">
             <div className="flex justify-between font-semibold text-foreground">
-              <span>Total today</span>
+              <span>Total drive time</span>
               <span>{formatDriveHours(todayDriveStats.hours)}</span>
             </div>
           </div>
@@ -147,14 +147,14 @@ export function TodayScreen() {
             <div className="flex justify-between items-center">
               <p className="font-semibold text-foreground">{todayStay.propertyName}</p>
               <StatusPill
-                label={todayStay.status}
+                label={presentStayStatus(todayStay.status)}
                 tone={todayStay.status === "booked" ? "success" : "warning"}
               />
             </div>
 
             {todayStay.confirmationCode && (
               <div className="flex items-center gap-2">
-                <p className="text-muted-foreground">Code:</p>
+                <p className="text-muted-foreground">Confirmation code:</p>
                 <code className="bg-slate-100 px-2 py-1 rounded font-mono text-xs text-foreground">
                   {todayStay.confirmationCode}
                 </code>
@@ -239,4 +239,10 @@ export function TodayScreen() {
       )}
     </div>
   );
+}
+
+function presentStayStatus(status: "researching" | "shortlisted" | "booked") {
+  if (status === "booked") return "Booked";
+  if (status === "shortlisted") return "Shortlisted";
+  return "Researching";
 }

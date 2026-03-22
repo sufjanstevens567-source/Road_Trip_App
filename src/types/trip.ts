@@ -4,6 +4,8 @@ export type TripStatus = "draft" | "planning" | "ready" | "active" | "completed"
 export type AppMode = "planning" | "trip";
 export type AppView = "route" | "itinerary" | "stays" | "prep" | "notes";
 export type TripView = "today" | "stays" | "overview";
+export type RouteLayoutPreference = "map-focus" | "balanced" | "details-focus";
+export type DisplayScale = "default" | "comfortable" | "large";
 
 export type StopType = "origin" | "waypoint" | "overnight" | "destination";
 export type DayType = "driving" | "rest" | "mixed";
@@ -214,4 +216,6 @@ export interface TripState {
   selectedDayId: string | null;
   executionDayId: string | null;
   expandedDayIds: string[];
+  routeLayoutPreference: RouteLayoutPreference;
+  displayScale: DisplayScale;
 }

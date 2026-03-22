@@ -382,7 +382,7 @@ export function TripWizard({ onClose }: { onClose: () => void }) {
           {step === 1 && (
             <div className="space-y-4">
               <PlaceSearch
-                label="Starting from"
+                label="Starting point"
                 placeholder="e.g. Luxembourg City"
                 value={data.origin ? `${data.origin.name}, ${data.origin.country}` : ""}
                 onSelect={(r) => {
@@ -392,7 +392,7 @@ export function TripWizard({ onClose }: { onClose: () => void }) {
                 }}
               />
               <PlaceSearch
-                label="Ending at"
+                label="Destination"
                 placeholder="e.g. Sofia"
                 value={data.destination ? `${data.destination.name}, ${data.destination.country}` : ""}
                 onSelect={(r) => {
@@ -447,7 +447,7 @@ export function TripWizard({ onClose }: { onClose: () => void }) {
           {step === 3 && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Add overnight stops or waypoints between {data.origin?.name} and {data.destination?.name}.
+                Add overnight stops or route stops between {data.origin?.name} and {data.destination?.name}.
               </p>
               {data.waypoints.length > 0 && (
                 <ul className="space-y-2">
@@ -467,7 +467,7 @@ export function TripWizard({ onClose }: { onClose: () => void }) {
                             patch({ waypoints: updated });
                           }}
                         >
-                          {wp.type === "overnight" ? "Overnight" : "Waypoint"}
+                          {wp.type === "overnight" ? "Overnight stop" : "Route stop"}
                         </button>
                         <button
                           type="button"
@@ -544,7 +544,7 @@ export function TripWizard({ onClose }: { onClose: () => void }) {
           ) : (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => finalize(false)}>
-                Create without rules
+                Skip travel rules
               </Button>
               <Button size="sm" onClick={() => finalize(true)}>
                 <Check className="mr-1.5 size-3.5" /> Create trip

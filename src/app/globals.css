@@ -52,6 +52,7 @@
   --input: oklch(0.9 0.006 86);
   --ring: oklch(0.54 0.09 232 / 0.28);
   --radius: 1.4rem;
+  --app-font-size: clamp(15px, 0.22vw + 14px, 17px);
 }
 
 @layer base {
@@ -61,6 +62,19 @@
 
   html {
     @apply scroll-smooth;
+    font-size: var(--app-font-size);
+  }
+
+  html[data-display-scale="default"] {
+    --app-font-size: clamp(15px, 0.18vw + 14px, 16px);
+  }
+
+  html[data-display-scale="comfortable"] {
+    --app-font-size: clamp(16px, 0.22vw + 14.5px, 17px);
+  }
+
+  html[data-display-scale="large"] {
+    --app-font-size: clamp(17px, 0.28vw + 15px, 18.5px);
   }
 
   body {
@@ -88,10 +102,18 @@
 
 .leaflet-container {
   font: inherit;
+  z-index: 0 !important;
 }
 
 .leaflet-control-attribution {
   font-size: 10px;
+}
+
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom,
+.leaflet-control {
+  z-index: 0 !important;
 }
 
 @keyframes view-enter {

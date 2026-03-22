@@ -29,7 +29,7 @@ export function TripLibrary({ onNewTrip }: { onNewTrip: () => void }) {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sky-50 to-slate-50 px-4">
         <EmptyState
           title="Plan your first road trip"
-          description="Start planning an epic journey across countries and continents"
+          description="Build your first trip and keep the route, stays, prep, and notes in one place."
           action={
             <Button onClick={onNewTrip} size="lg">
               <Plus className="mr-2 size-5" /> Start planning
@@ -46,7 +46,7 @@ export function TripLibrary({ onNewTrip }: { onNewTrip: () => void }) {
         <div className="mb-12 flex items-end justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-              Road trips
+              Trips
             </p>
             <h1 className="mt-2 text-4xl font-bold text-foreground">
               {trips.length === 1 ? "Your trip" : "Your trips"}
@@ -99,7 +99,7 @@ function TripCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <StatusPill label={trip.status} tone={statusTone(trip.status)} />
+          <StatusPill label={presentTripStatus(trip.status)} tone={statusTone(trip.status)} />
         </div>
 
         <div className="flex gap-2 pt-2">
@@ -125,4 +125,12 @@ function statusTone(
   if (status === "completed") return "muted";
   if (status === "planning") return "warning";
   return "muted";
+}
+
+function presentTripStatus(status: Trip["status"]) {
+  if (status === "ready") return "Trip Ready";
+  if (status === "active") return "On the Road";
+  if (status === "completed") return "Completed";
+  if (status === "planning") return "Planning";
+  return "Draft";
 }

@@ -1,86 +1,154 @@
 # Road Trip Operating System
 
-A desktop-first, local-first road trip planning and companion app. Designed first for a specific journey — Luxembourg to Sofia — but built to be repeatable for any multi-day road trip.
+A desktop-first, local-first road trip planning and travel companion app for long multi-day drives across Europe.
 
-The app has two modes: **Planning Mode** for building and refining the trip at your desk, and **Trip Mode** for a focused, glanceable companion on the road.
+The project started with a Luxembourg to Sofia trip and now serves as a reusable planning desk for route design, day-by-day pacing, stays, travel prep, notes, and AI-assisted trip refinement.
 
----
+## Product goals
 
-## What it does
+- Make a complex road trip feel calm, legible, and editable from one place.
+- Keep the route spatial and visual instead of burying it in lists.
+- Separate trip structure, day planning, stays, prep, and notes so each screen has a clear job.
+- Support both planning at a desk and a simpler on-the-road companion mode.
+- Let the user package the trip for an external AI tool without oversharing unwanted context.
 
-### Planning Mode (desktop-first)
+## Current product shape
 
-A five-view planning desk accessible from a persistent left sidebar:
+The app has two working modes.
 
-- **Route** — Manage your stop list, reorder stops, add new stops via city search (Nominatim/OpenStreetMap geocoding), and view the full route on an interactive map. Compliance score, total distance, total drive time, and per-day pacing are shown in the right panel.
-- **Itinerary** — Day-by-day view with drive stats, pacing warnings, overnight stop, and inline stay details. Collapsible day cards with compliance warnings surfaced per day.
-- **Stays & Budget** — Manage accommodation bookings (property, check-in/out, confirmation, parking notes, cost) alongside a full trip budget breakdown by category.
-- **Prep** — Country-by-country compliance rules (vignettes, green cards, first aid kits, etc.) and a vehicle readiness checklist, feeding into an overall trip readiness score.
-- **Notes** — Quick-capture notes scoped to the full trip, a specific day, or a specific stop.
+### Planning Mode
 
-### Trip Mode (mobile-first)
+Planning Mode is the primary desktop workspace. It includes:
 
-A three-tab companion view for use on the road:
+- **Route**: map-first route planning with a left rail for stop order, route overview, stop detail, and stop insertion.
+- **Itinerary**: day-by-day chapters with drive timing, rest days, warnings, checklist context, and compact stay summaries.
+- **Stays & Costs**: scan-first accommodation cards plus budget tracking and editable budget lines.
+- **Trip Prep**: country requirements, travel-prep tracking, and readiness signals.
+- **Notes**: quick capture, pinned notes, tags, and trip memory.
 
-- **Today** — Today's drive stats, overnight stop details, the next day's move, and any outstanding warnings.
-- **Stays** — All accommodation at a glance with booking status and check-in details.
-- **Trip** — Overall progress, map overview, and countries on the route.
+### Trip Mode
 
-### Trip lifecycle
+Trip Mode is the lighter companion view for the road. It focuses on:
 
-Trips move through five states: `draft → planning → ready → active → completed`. The sidebar surfaces contextual actions at each stage — "Mark as Ready" when readiness reaches 80%, "Start Trip" to activate and switch to Trip Mode, "Finish trip" to close out a completed journey.
+- **Today**: today's drive, tonight's stay, checklist context, and tomorrow's preview.
+- **Stays**: accommodation details in a simpler travel-friendly layout.
+- **Progress**: overall trip progress and route context.
 
-### Trip library
+## AI help workflow
 
-The home screen shows all trips as cards. New trips are created via a 4-step wizard: origin and destination (with geocoding), dates and max daily drive hours, optional waypoints, and trip details. The wizard auto-distributes legs across days based on your drive hour limit and optionally seeds country compliance rules for the countries on your route.
+The app now includes a built-in **Get AI Help** flow in Planning Mode.
 
----
+This feature is designed for everyday users rather than power users. Instead of asking the user to build a prompt manually, the app lets them:
 
-## Data model
+- choose up to 3 help goals
+- add an optional plain-language request
+- choose which optional trip sections to share
+- decide whether sensitive booking details and personal notes should be included
 
-Every entity is persisted locally via Zustand + `localStorage`. The core types are:
+The app then generates:
 
-- **Trip** — name, origin, destination, dates, travelers, vehicle, currency, max drive hours/day, status
-- **Stop** — name, country, coordinates, type (`origin / waypoint / destination`), `isAlternative` flag for route variants
-- **Leg** — connects two stops, stores estimated distance, drive hours, countries crossed, toll and risk notes
-- **Day** — date, day number, array of leg IDs, overnight stop, type, notes
-- **Stay** — accommodation per stop: property, check-in/out, booking URL, confirmation, parking, cost (planned and actual)
-- **CountryRule** — per-country compliance items (vignettes, green cards, equipment) with status tracking
-- **ChecklistItem** — scoped to `trip`, `day:{id}`, or `stop:{id}`; categories include documents, vehicle, booking, health, finance
-- **Note** — free-form notes optionally tied to a day or stop
-- **BudgetLine** — categorised trip expenses; accommodation is sourced from Stay costs (no duplication)
+- a ready-to-paste AI markdown brief
+- a structured JSON trip-context export
 
----
+### AI help goals
 
-## Country compliance database
+Users can ask AI to help with:
 
-Seeded rules for 15 European countries: Luxembourg, Germany, Austria, Switzerland, France, Belgium, Netherlands, Italy, Slovenia, Croatia, Hungary, Czech Republic, Serbia, Bulgaria, Poland. Each rule set covers motorway vignettes, green cards, warning triangles, first aid kits, breathalyser requirements, and country-specific items.
+- improving the route
+- checking the pacing
+- finding better stays
+- reviewing the budget
+- checking travel prep
+- reviewing the whole trip
 
----
+### Selective export behavior
+
+The AI export is intentionally selective.
+
+- **Always included**: Route and Itinerary
+- **Optional**: Stays, Budget, Travel prep, Notes
+- **Sensitive details**: booking links, confirmation codes, freeform notes, and other private planning context
+
+The export layer now respects those choices not only at the top level, but also inside nested route and itinerary context. If the user turns off `Stays`, stay status and booking warnings are not leaked indirectly through always-included sections. If the user turns off `Notes`, freeform notes are kept out of route and itinerary exports as well.
+
+## Design principles
+
+- **Calm before density**: show the right layer first and reveal detail deliberately.
+- **Map-first route understanding**: the route should read spatially before it reads administratively.
+- **Clear screen ownership**:
+  - Route owns geography and structure
+  - Itinerary owns day-by-day planning
+  - Stays & Costs owns reservations and spend
+  - Trip Prep owns requirements
+  - Notes owns freeform context
+- **Local-first**: no backend, no auth, no sync.
+- **Travel language over product language**: the copy is designed to feel clear, human, and traveler-centered.
+
+## Audience
+
+This app is for a solo traveler or small group planning a real road trip with multiple stops, multiple overnights, and real operational constraints such as:
+
+- long drive days
+- changing overnights
+- parking requirements
+- country-by-country driving rules
+- budget tradeoffs
+- notes and reminders that need to stay tied to the trip
+
+It is not designed as a generic team travel SaaS or a booking marketplace.
+
+## Constraints and non-goals
+
+Current intentional constraints:
+
+- desktop-first planning experience
+- browser-local persistence via Zustand and `localStorage`
+- no account system
+- no cloud sync
+- no collaboration
+- no direct booking integration
+- no turn-by-turn navigation
+- no native mobile app
+
+The app links out to external tools where that is more useful than rebuilding them, such as Google Maps for place handoff.
+
+## Core data model
+
+The app persists trip data locally. Core entities include:
+
+- **Trip**: name, status, dates, travelers, vehicle, currency, drive-hour target
+- **Stop**: ordered route stop with name, country, coordinates, type, and optional-route flags
+- **Leg**: drive segment between two stops with timing, distance, and route notes
+- **Day**: a dated itinerary day made of one or more legs
+- **Stay**: overnight accommodation linked to a stop
+- **CountryRule**: travel-requirement records for each country
+- **ChecklistItem**: scoped tasks tied to trip, day, or stop
+- **Note**: freeform trip notes with optional tags and scoping
+- **BudgetLine**: non-accommodation budget items
 
 ## Seed trip
 
-The app ships with a Luxembourg → Sofia seed trip to demonstrate the full feature set:
+The seeded trip demonstrates the full system with a Luxembourg to Sofia route including:
 
-- 8 stops: Luxembourg, Munich, Bohinj (alternative), Lake Bled (alternative), Ljubljana, Novi Sad, Belgrade, Sofia
-- 6 legs across 9 days
-- 5 stays, country rules for 5 countries, budget lines, notes, and checklist items
-- Alternative stops are flagged with `isAlternative: true` rather than a hardcoded route variant system
+- 8 route stops
+- 9 trip days
+- overnight stays
+- country requirements across multiple countries
+- notes, checklist items, and budget lines
 
----
+It is meant to be realistic enough to exercise the planning flows, not just to populate the UI.
 
-## Stack
+## Tech stack
 
-- **Next.js 16** App Router
-- **React 19** + TypeScript
+- **Next.js 16**
+- **React 19**
+- **TypeScript**
 - **Tailwind CSS v4**
-- **shadcn/ui** component primitives
-- **Zustand** with `localStorage` persistence (schema version 3, auto-migration)
-- **React Leaflet** + OpenStreetMap tiles (SSR-safe, loaded dynamically)
-- **Nominatim** OpenStreetMap geocoding API (no API key required)
-- **lucide-react** icons
-
----
+- **shadcn/ui**
+- **Zustand**
+- **React Leaflet** with OpenStreetMap tiles
+- **Nominatim** for geocoding
+- **lucide-react**
 
 ## Run locally
 
@@ -89,70 +157,63 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The seed trip loads automatically on first visit.
+Open [http://localhost:3000](http://localhost:3000).
 
----
+For a production-style local preview:
+
+```bash
+./node_modules/.bin/next build
+./node_modules/.bin/next start
+```
 
 ## Project structure
 
-```
+```text
 src/
-├── app/
-│   ├── page.tsx              # Root page — renders AppShell
-│   ├── layout.tsx
-│   └── globals.css
-├── components/
-│   ├── app-shell.tsx         # Top-level router: library / planning / trip mode
-│   ├── trip-library.tsx      # Home screen — trip cards + new trip button
-│   ├── planning/
-│   │   ├── planning-shell.tsx      # Desktop shell with sidebar + 5 views
-│   │   ├── route-view.tsx          # Stop list, map, route details
-│   │   ├── simple-route-map.tsx    # React Leaflet map component
-│   │   ├── itinerary-view.tsx      # Day cards with pacing + stays
-│   │   ├── stays-budget-view.tsx   # Accommodation + budget
-│   │   ├── prep-view.tsx           # Country rules + vehicle checklist
-│   │   └── notes-view.tsx          # Note capture and browser
-│   ├── trip-mode/
-│   │   ├── trip-mode-shell.tsx     # Mobile shell with bottom tabs
-│   │   ├── today-screen.tsx        # Today's drive + overnight
-│   │   ├── stays-tab.tsx           # Stays list
-│   │   └── overview-tab.tsx        # Progress + map
-│   ├── wizard/
-│   │   └── trip-wizard.tsx         # 4-step new trip creation wizard
-│   ├── shared/
-│   │   └── ui-helpers.tsx          # StatusPill, ReadinessBar, EmptyState, SectionLead
-│   └── ui/                         # shadcn/ui primitives
-├── data/
-│   ├── trip-seed.ts          # Luxembourg → Sofia seed trip
-│   └── country-rules-db.ts   # 15-country compliance rule database
-├── lib/
-│   └── trip-utils.ts         # Selectors, drive stat calculations, readiness scoring
-├── store/
-│   └── trip-store.ts         # Zustand store with persist + migration
-└── types/
-    └── trip.ts               # All shared TypeScript types
+  app/
+    layout.tsx
+    page.tsx
+    globals.css
+  components/
+    app-shell.tsx
+    trip-library.tsx
+    planning/
+      planning-shell.tsx
+      route-view.tsx
+      itinerary-view.tsx
+      stays-budget-view.tsx
+      prep-view.tsx
+      notes-view.tsx
+      ai-help-sheet.tsx
+    trip-mode/
+      trip-mode-shell.tsx
+      today-screen.tsx
+      stays-tab.tsx
+      overview-tab.tsx
+    wizard/
+      trip-wizard.tsx
+    shared/
+      ui-helpers.tsx
+    ui/
+      ...
+  data/
+    trip-seed.ts
+    country-rules-db.ts
+  lib/
+    trip-utils.ts
+    ai-export.ts
+  store/
+    trip-store.ts
+  types/
+    trip.ts
 ```
 
----
+## Notes for future development
 
-## How to update the seed trip
+Good future directions include:
 
-Edit `src/data/trip-seed.ts` to change stops, legs, days, stays, country rules, budget lines, or notes. The store auto-migrates on load — if the schema version changes, the seed is reapplied.
-
----
-
-## Design principles
-
-- **Calm before density** — surface the right layer first, reveal detail deliberately.
-- **Planning tool first, companion second** — expansive and editable at the desk; focused and glanceable on the road.
-- **Local-first** — no backend, no auth, no sync. Everything lives in the browser.
-- **Repeatable** — built for one trip, designed to work for any trip.
-
----
-
-## Non-goals for the current phase
-
-- Multi-user collaboration or cloud sync
-- Live booking or navigation API integrations
-- Turn-by-turn directions (the app links out to Google Maps)
-- Native mobile app
+- better mobile adaptation
+- richer AI export/download flows
+- more nuanced travel-risk modeling
+- improved trip comparison and route alternatives
+- deployment and cloud sync only if they support the core planning experience instead of diluting it

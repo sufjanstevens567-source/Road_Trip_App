@@ -53,7 +53,7 @@ export function NotesView() {
         <SectionLead
           eyebrow="Capture"
           title="Quick notes"
-          description="Title it, write it, tag it, then save it into the trip memory."
+          description="Capture a note, tag it, and keep it with the trip."
         />
 
         <div className="mt-5 space-y-4">
@@ -104,7 +104,7 @@ export function NotesView() {
 
       <div className="grid gap-8 xl:grid-cols-[14rem_minmax(0,1fr)]">
         <div className="space-y-4">
-          <SectionLead eyebrow="Pinned" title="Keep close" description={`${pinnedNotes.length} pinned note${pinnedNotes.length !== 1 ? "s" : ""}`} />
+          <SectionLead eyebrow="Pinned" title="Pinned notes" description={`${pinnedNotes.length} pinned note${pinnedNotes.length !== 1 ? "s" : ""}`} />
 
           {pinnedNotes.length > 0 ? (
             <div className="space-y-3">
@@ -121,12 +121,12 @@ export function NotesView() {
               ))}
             </div>
           ) : (
-            <EmptyState title="No pinned notes yet" description="Pin useful intel and it will stay visible here while the main list keeps moving." />
+            <EmptyState title="No pinned notes yet" description="Pin important notes to keep them easy to reach." />
           )}
         </div>
 
         <div className="space-y-4">
-          <SectionLead eyebrow="Notes" title="All notes" description={`${filteredNotes.length} note${filteredNotes.length !== 1 ? "s" : ""} ready to sort, pin, or revisit.`} />
+          <SectionLead eyebrow="Notes" title="All notes" description={`${filteredNotes.length} note${filteredNotes.length !== 1 ? "s" : ""} ready to review, sort, or pin.`} />
 
           {allTags.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -145,7 +145,7 @@ export function NotesView() {
             {filteredNotes.length === 0 ? (
               <EmptyState
                 title="No notes yet"
-                description="Capture route ideas, booking details, and travel reminders here so the trip memory has a place to live."
+                description="Capture route ideas, booking details, and reminders here."
               />
             ) : (
               filteredNotes.map((note) => (

@@ -6,6 +6,7 @@ import { getActiveTrip, getTripStays, getTripCountryRules, getTripDays, getTripC
 import { Button } from "@/components/ui/button";
 import { MiniReadinessBar, StatusPill } from "@/components/shared/ui-helpers";
 import type { TripStatus } from "@/types/trip";
+import { AiHelpSheet } from "./ai-help-sheet";
 import { RouteView } from "./route-view";
 import { ItineraryView } from "./itinerary-view";
 import { StaysBudgetView } from "./stays-budget-view";
@@ -36,8 +37,8 @@ export function PlanningShell() {
   const navItems = [
     { id: "route" as const, label: "Route", icon: Map },
     { id: "itinerary" as const, label: "Itinerary", icon: Calendar },
-    { id: "stays" as const, label: "Stays & Budget", icon: DollarSign },
-    { id: "prep" as const, label: "Prep", icon: Clipboard },
+    { id: "stays" as const, label: "Stays & Costs", icon: DollarSign },
+    { id: "prep" as const, label: "Trip Prep", icon: Clipboard },
     { id: "notes" as const, label: "Notes", icon: BookOpen },
   ];
 
@@ -46,10 +47,10 @@ export function PlanningShell() {
   const itineraryAttentionCount = days.filter((day) => getDayWarnings(day, state.legs, rules, checklist, stays).length > 0).length;
   const tripModeLabel =
     activeTrip.status === "ready"
-      ? "Start Trip Mode"
+      ? "Start Trip"
       : activeTrip.status === "planning" || activeTrip.status === "draft"
-        ? "Preview Trip Mode"
-        : "Trip Mode";
+        ? "Preview trip"
+        : "Open trip";
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -61,7 +62,7 @@ export function PlanningShell() {
             <div>
               <h1 className="text-lg font-semibold text-foreground">{activeTrip.name}</h1>
             </div>
-            <StatusPill label={activeTrip.status} tone={tripStatusTone(activeTrip.status)} />
+            <StatusPill label={presentTripStatus(activeTrip.status)} tone={tripStatusTone(activeTrip.status)} />
           </div>
 
           {/* Navigation */}
@@ -99,9 +100,7 @@ export function PlanningShell() {
           <div className="mt-auto space-y-6 pt-6">
             {/* Readiness Chips */}
             <div className="border-t border-slate-200 pt-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Readiness
-              </p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Ready to go</p>
               <div className="space-y-2">
                 <MiniReadinessBar
                   label="Stays"
@@ -109,7 +108,7 @@ export function PlanningShell() {
                   detail={staysOpenCount > 0 ? `${staysOpenCount} still open` : "Everything booked"}
                 />
                 <MiniReadinessBar
-                  label="Compliance"
+                  label="Travel requirements"
                   value={readiness.compliance}
                   detail={complianceOpenCount > 0 ? `${complianceOpenCount} items still open` : "All country rules cleared"}
                 />
@@ -131,7 +130,7 @@ export function PlanningShell() {
                   className="w-full border-green-300 text-green-700 hover:bg-green-50"
                   onClick={() => setTripStatus(activeTrip.id, "ready")}
                 >
-                  <CheckCircle2 className="mr-2 size-4" /> Mark as Ready
+                  <CheckCircle2 className="mr-2 size-4" /> Mark Trip Ready
                 </Button>
               )}
 
@@ -169,6 +168,9 @@ export function PlanningShell() {
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-8 py-8">
+          <div className="mb-6 flex justify-end">
+            <AiHelpSheet tripId={activeTrip.id} tripName={activeTrip.name} />
+          </div>
           <div key={activeView} className="view-stage">
             {activeView === "route" && <RouteView />}
             {activeView === "itinerary" && <ItineraryView />}
@@ -227,4 +229,12 @@ function tripStatusTone(status: TripStatus): "success" | "warning" | "danger" | 
   if (status === "completed") return "muted";
   if (status === "planning") return "warning";
   return "muted";
+}
+
+function presentTripStatus(status: TripStatus) {
+  if (status === "ready") return "Trip Ready";
+  if (status === "active") return "On the Road";
+  if (status === "completed") return "Completed";
+  if (status === "planning") return "Planning";
+  return "Draft";
 }

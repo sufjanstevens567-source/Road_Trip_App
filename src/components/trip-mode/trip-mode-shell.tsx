@@ -21,7 +21,7 @@ export function TripModeShell() {
   const tabs = [
     { id: "today" as const, label: "Today", icon: Sun },
     { id: "stays" as const, label: "Stays", icon: Home },
-    { id: "overview" as const, label: "Trip", icon: MapIcon },
+    { id: "overview" as const, label: "Progress", icon: MapIcon },
   ];
 
   return (
@@ -31,7 +31,7 @@ export function TripModeShell() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Trip Mode
+              On the Road
             </p>
             <h1 className="mt-0.5 text-lg font-semibold text-foreground">{activeTrip.name}</h1>
           </div>
@@ -46,7 +46,7 @@ export function TripModeShell() {
                   setAppMode("planning");
                 }}
               >
-                <Flag className="mr-1.5 size-4" /> Finish trip
+                <Flag className="mr-1.5 size-4" /> Complete trip
               </Button>
             )}
             <Button
@@ -55,7 +55,7 @@ export function TripModeShell() {
               onClick={() => setAppMode("planning")}
               className="text-muted-foreground"
             >
-              <ChevronLeft className="mr-1.5 size-4" /> Planning
+              <ChevronLeft className="mr-1.5 size-4" /> Back to planning
             </Button>
           </div>
         </div>

@@ -15,8 +15,10 @@ import type {
   ChecklistScope,
   CountryRule,
   Day,
+  DisplayScale,
   Leg,
   Note,
+  RouteLayoutPreference,
   Stay,
   Stop,
   Trip,
@@ -46,6 +48,8 @@ function buildInitialState(): TripState {
     selectedDayId: null,
     executionDayId: null,
     expandedDayIds: [],
+    routeLayoutPreference: "balanced",
+    displayScale: "comfortable",
     ...SEED_STATE,
   };
 }
@@ -63,6 +67,8 @@ type TripStore = TripState & {
   toggleExpandedDay: (id: string) => void;
   expandAllDays: (tripId: string) => void;
   collapseAllDays: () => void;
+  setRouteLayoutPreference: (value: RouteLayoutPreference) => void;
+  setDisplayScale: (value: DisplayScale) => void;
 
   // Trip CRUD
   createTrip: (data: Omit<Trip, "id" | "createdAt" | "status">) => string;
@@ -188,6 +194,8 @@ export const useTripStore = create<TripStore>()(
           expandedDayIds: s.days.filter((d) => d.tripId === tripId).map((d) => d.id),
         })),
       collapseAllDays: () => set({ expandedDayIds: [] }),
+      setRouteLayoutPreference: (routeLayoutPreference) => set({ routeLayoutPreference }),
+      setDisplayScale: (displayScale) => set({ displayScale }),
 
       // ── Trip CRUD ────────────────────────────────────────────────────────────
       createTrip: (data) => {
@@ -675,7 +683,7 @@ export const useTripStore = create<TripStore>()(
     }),
     {
       name: "road-trip-planner-v3",
-      version: 3,
+      version: 4,
       migrate: (persisted) => {
         // If persisted state is unreadable or from old schema, reset to seed
         if (
@@ -685,7 +693,27 @@ export const useTripStore = create<TripStore>()(
         ) {
           return buildInitialState();
         }
-        return persisted as TripState;
+
+        const nextState = {
+          ...buildInitialState(),
+          ...(persisted as Partial<TripState>),
+        };
+
+        nextState.routeLayoutPreference =
+          nextState.routeLayoutPreference === "map-focus" ||
+          nextState.routeLayoutPreference === "balanced" ||
+          nextState.routeLayoutPreference === "details-focus"
+            ? nextState.routeLayoutPreference
+            : "balanced";
+
+        nextState.displayScale =
+          nextState.displayScale === "default" ||
+          nextState.displayScale === "comfortable" ||
+          nextState.displayScale === "large"
+            ? nextState.displayScale
+            : "comfortable";
+
+        return nextState;
       },
     }
   )

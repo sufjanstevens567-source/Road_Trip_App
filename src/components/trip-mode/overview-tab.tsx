@@ -74,7 +74,7 @@ export function OverviewTab() {
       {/* Stats */}
       <Card className="p-4 space-y-3">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Route stats
+          Route overview
         </p>
         <div className="space-y-2">
           <div className="flex justify-between">
@@ -91,7 +91,7 @@ export function OverviewTab() {
       {/* All stops */}
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          All stops
+          Stops
         </p>
         <div className="space-y-2">
           {stops.map((stop) => {
@@ -116,7 +116,7 @@ export function OverviewTab() {
                     <p className="text-xs text-muted-foreground">{stop.country}</p>
                   </div>
                   <div className="flex gap-2">
-                    <StatusPill label={stop.type} tone="info" />
+                    <StatusPill label={presentStopType(stop.type)} tone="info" />
                     {day && (
                       <StatusPill
                         label={`Day ${day.dayNumber}`}
@@ -132,4 +132,11 @@ export function OverviewTab() {
       </div>
     </div>
   );
+}
+
+function presentStopType(type: string) {
+  if (type === "origin") return "Start";
+  if (type === "destination") return "Finish";
+  if (type === "overnight") return "Overnight stop";
+  return "Route stop";
 }
